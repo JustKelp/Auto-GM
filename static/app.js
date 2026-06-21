@@ -387,6 +387,28 @@ function attachPointerDrag(el, cfg) {
 }
 
 // ------------------------------------------------------------------- panels
+// ---------------------------------------------------------------------------
+// PHASES — GM (roster/funds) ▸ Coach (positioning) ▸ Fan (watch). Each scene
+// shows only what it needs; the body class drives which sections are visible.
+// ---------------------------------------------------------------------------
+let viewPhase = "gm";
+const PHASE_ORDER = {gm: 0, coach: 1, fan: 2};
+const PHASE_LABEL = {gm: "GM — build your roster",
+                     coach: "Coach — set your lineup", fan: "Fan — watch the game"};
+
+function setView(p) {
+  viewPhase = p;
+  document.body.classList.remove("view-gm", "view-coach", "view-fan");
+  document.body.classList.add("view-" + p);
+  document.querySelectorAll("#phase-nav .pstep").forEach((el) => {
+    el.classList.toggle("active", el.dataset.phase === p);
+    el.classList.toggle("done", PHASE_ORDER[el.dataset.phase] < PHASE_ORDER[p]);
+  });
+  $("phase-label").textContent = PHASE_LABEL[p];
+  window.scrollTo(0, 0);
+  if (p === "coach") renderBuild();      // refresh court tokens + overlap check
+}
+
 function render() {
   $("record").textContent = `${state.wins}W – ${state.losses}L`;
   $("cap").textContent = state.cap;
@@ -777,18 +799,22 @@ async function play() {
   if (busy || conflicts.size) return;
   if (state.lineup.length === 0) { logLines(["Sign at least one player first."]); return; }
   const r = await api("/api/play", {state});
-  if (r.error) { state = r.state; render(); logLines(r.log); return; }  // overlap backstop
+  if (r.error) {                          // overlap backstop — stay in Coach to fix it
+    state = r.state; renderBuild(); validate(); logLines(r.log); return;
+  }
   state = r.state;
+  setView("fan");                         // Fan phase — sit back and watch
   await animate(r.result);
   showPostgame(r.result);                 // box score; "Continue" resumes the run
 }
 
-// resume from the post-game box score → back to building, or end the run
+// resume from the post-game box score → back to GM to rebuild, or end the run
 function resumePostgame() {
   $("postgame").classList.add("hidden");
   const result = pendingResult;
   pendingResult = null;
   render();
+  setView("gm");
   if (result && result.game_over) showOverlay(result.outcome);
   else setButtons(true);
 }
@@ -863,6 +889,7 @@ async function newGame() {
   $("feed").innerHTML = "";
   setButtons(true);
   render();
+  setView("gm");
   logLines(r.log);
 }
 
@@ -870,6 +897,12 @@ $("play").onclick = play;
 $("newgame").onclick = newGame;
 $("overlay-btn").onclick = newGame;
 $("pg-btn").onclick = resumePostgame;
+$("to-coach").onclick = () => {
+  if (busy) return;
+  if (!state.lineup.length) { logLines(["Sign at least one player first."]); return; }
+  setView("coach");
+};
+$("to-gm").onclick = () => { if (!busy) setView("gm"); };
 $("reroll").onclick = async () => {
   if (busy) return;
   const r = await api("/api/reroll", {state});

@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body
+  class="view-gm"
   data-lineup-size="{{ lineup_size }}"
   data-wins="{{ wins_to_finish }}"
   data-losses="{{ losses_to_bust }}"
@@ -29,19 +30,25 @@
     <div class="team opp"><span class="label">OPP</span><span id="opp-score">0</span>
       <span id="opp-poss" class="poss-left"></span></div>
   </div>
-  <div class="goal muted">🏆 Championship Run · {{ wins_to_finish }} wins clinches the Finals · eliminated at {{ losses_to_bust }} losses</div>
+  <!-- phase stepper: GM ▸ Coach ▸ Fan -->
+  <nav id="phase-nav" class="phase-nav">
+    <span class="pstep" data-phase="gm"><b>1</b> GM<small>roster &amp; funds</small></span>
+    <span class="pstep" data-phase="coach"><b>2</b> Coach<small>positioning</small></span>
+    <span class="pstep" data-phase="fan"><b>3</b> Fan<small>watch</small></span>
+  </nav>
 </header>
 
 <main>
-  <!-- LEFT: your team (compact) + opponent card -->
+  <!-- LEFT: your team (GM only) -->
   <aside class="leftcol">
-    <aside class="posbar" id="posbar"></aside>
-    <div id="opp-panel" class="teamcard opp hidden"></div>
+    <aside class="posbar hide-in-coach hide-in-fan" id="posbar"></aside>
   </aside>
 
-  <!-- RIGHT: court on top, free agency under it, play-by-play under that -->
+  <!-- RIGHT: opponent (fan) · court (coach+fan) · free agency (gm) · feed (fan) -->
   <div class="rightcol">
-    <section class="court-wrap">
+    <div id="opp-panel" class="teamcard opp hidden hide-in-gm hide-in-coach"></div>
+
+    <section class="court-wrap hide-in-gm">
       <div id="court" class="court">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="court-lines">
           <rect x="1" y="1" width="98" height="98" rx="2"/>
@@ -62,31 +69,43 @@
         <div id="hoop" class="hoop"><div class="board"></div><div class="rim"></div></div>
         <!-- player tokens injected here -->
       </div>
-      <p class="hint"><span id="spacing-note" class="warn"></span></p>
+      <p class="court-cap hide-in-fan muted">Coach phase — drag players to set your tactics</p>
     </section>
 
-    <!-- free agency (shop) — directly under the court, all cards visible -->
-    <section class="shop-wrap">
+    <!-- free agency (shop) — GM phase only -->
+    <section class="shop-wrap hide-in-coach hide-in-fan">
       <div class="shop-head">
         <span class="shop-title">FREE AGENCY
           <span class="muted" id="unlock-note"></span></span>
-        <div class="controls">
-          <span class="cap-pill" title="cap space">CAP <b id="cap">0</b></span>
-          <button id="reroll">↻ Reroll (-{{ reroll_cost }})</button>
-          <button id="play" class="primary">▶ Play Round</button>
-          <button id="newgame">New Run</button>
-        </div>
       </div>
       <div id="shop" class="shop"></div>
     </section>
 
-    <!-- play-by-play — underneath free agency -->
-    <section class="feed-wrap" id="pbp">
+    <!-- play-by-play — Fan phase only -->
+    <section class="feed-wrap hide-in-gm hide-in-coach" id="pbp">
       <h2>PLAY-BY-PLAY</h2>
       <div id="feed" class="feed"></div>
     </section>
   </div>
 </main>
+
+<!-- persistent phase action bar (pinned; swaps controls per phase) -->
+<div id="phasebar" class="phasebar">
+  <div class="pgroup gm">
+    <span class="cap-pill" title="cap space">CAP <b id="cap">0</b></span>
+    <button id="reroll">↻ Reroll (-{{ reroll_cost }})</button>
+    <button id="newgame">New Run</button>
+    <button id="to-coach" class="primary">Set Lineup →</button>
+  </div>
+  <div class="pgroup coach">
+    <button id="to-gm">← GM</button>
+    <span id="spacing-note" class="warn"></span>
+    <button id="play" class="primary">▶ Tip Off</button>
+  </div>
+  <div class="pgroup fan">
+    <span class="watching muted">▶ Watching the game…</span>
+  </div>
+</div>
 
 <!-- post-game box score (shown after every game) -->
 <div id="postgame" class="overlay hidden">

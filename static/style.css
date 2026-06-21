@@ -54,9 +54,50 @@ h1{font-size:1.15em; font-weight:800}
 .poss-left{font-size:.6em; color:var(--muted); font-weight:700; letter-spacing:.05em;
   text-transform:uppercase; margin-top:3px; min-height:1em}
 
+/* ---------- PHASES — GM ▸ Coach ▸ Fan (Super Auto Pets-style scenes) ----
+   Each phase shows only what it needs. Body carries view-gm/view-coach/view-fan;
+   elements tagged hide-in-* drop out of the phases they don't belong to. */
+body.view-gm    .hide-in-gm,
+body.view-coach .hide-in-coach,
+body.view-fan   .hide-in-fan{display:none !important}
+body{padding-bottom:62px}              /* room for the pinned phase bar */
+
+/* phase stepper in the header */
+.phase-nav{grid-column:1/-1; justify-self:center; display:flex; gap:6px; margin-top:2px}
+.pstep{display:flex; align-items:center; gap:6px; padding:4px 12px; border-radius:20px;
+  background:var(--panel2); border:1px solid var(--line); color:var(--muted);
+  font-size:.74em; font-weight:700; letter-spacing:.03em}
+.pstep b{display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px;
+  border-radius:50%; background:var(--line); color:var(--ink); font-size:.86em}
+.pstep small{font-weight:400; font-size:.82em; opacity:.7}
+.pstep.active{background:linear-gradient(180deg,#5cb6ff,var(--you)); border-color:transparent;
+  color:#04203b}
+.pstep.active b{background:#04203b; color:#fff}
+.pstep.active small{opacity:.85}
+.pstep.done{color:var(--good); border-color:rgba(61,220,132,.4)}
+.pstep.done b{background:var(--good); color:#04203b}
+
+/* pinned phase action bar (PC + mobile alike) */
+.phasebar{position:fixed; left:0; right:0; bottom:0; z-index:16;
+  display:flex; justify-content:center; padding:8px 12px;
+  background:rgba(11,14,19,.97); border-top:1px solid var(--line)}
+.pgroup{display:none; align-items:center; gap:9px; width:100%; max-width:760px}
+body.view-gm .pgroup.gm,
+body.view-coach .pgroup.coach,
+body.view-fan .pgroup.fan{display:flex}
+.pgroup .cap-pill{flex:0 0 auto}
+.pgroup #reroll,.pgroup #newgame,.pgroup #to-gm{flex:0 0 auto}
+.pgroup #to-coach,.pgroup #play{flex:1 1 auto; max-width:280px; margin-left:auto}
+.pgroup #spacing-note{flex:1 1 auto; text-align:center}
+.pgroup .watching{flex:1 1 auto; text-align:center; font-weight:700}
+.court-cap{font-size:.78em; margin:2px 0 0; text-align:center}
+
 /* ---------- main layout: compact team (left) · court+shop+feed (right) - */
 main{display:grid; grid-template-columns:198px 1fr; gap:14px;
   padding:14px; align-items:start}
+/* Coach & Fan don't need the team column — center the court */
+body.view-coach main,
+body.view-fan main{grid-template-columns:1fr; max-width:760px; margin:0 auto}
 @media(max-width:640px){main{grid-template-columns:1fr}}
 
 /* ---------- LEFT: your team (compact) + opponent --------------------- */
@@ -352,20 +393,18 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .agg td.yv.lead{color:var(--you); text-shadow:0 0 12px rgba(61,165,255,.5)}
 .agg td.ov.lead{color:var(--opp); text-shadow:0 0 12px rgba(255,107,94,.5)}
 
-/* ---------- mobile / small screens ------------------------------------ */
-/* ---------- mobile / portrait — Super Auto Pets-style vertical bands ----
-   Same desktop content, stacked into horizontal "zones": a sticky scoreboard,
-   a smaller court, the team band, opponent/feed, a swipeable shop row, and a
-   pinned action bar so Play / Cap are always reachable without scrolling. */
+/* ---------- mobile / portrait — phases keep each screen minimal ---------
+   With GM/Coach/Fan splitting the content, mobile already shows one scene at a
+   time. This just tightens sizes and tunes the GM shop into a swipe row. */
 @media(max-width:640px){
-  body{padding-bottom:66px}                 /* leave room for the fixed action bar */
-
-  /* zone 1 — sticky compact scoreboard */
+  /* sticky compact scoreboard */
   header{position:sticky; top:0; z-index:15; grid-template-columns:1fr;
     gap:3px; padding:7px 12px 8px; text-align:center;
     background:linear-gradient(180deg,#11161f,#0b0e13)}
   h1{font-size:.96em}
   .goal{display:none}                       /* the record + clock carry the state */
+  .phase-nav{margin-top:4px}
+  .pstep small{display:none}                /* number + name only on phones */
   .scoreboard{gap:18px}
   .scoreboard .team{min-width:54px}
   .scoreboard .team #you-score,.scoreboard .team #opp-score{font-size:1.75em}
@@ -373,19 +412,16 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
   .clock{font-size:1.2em; margin-top:1px}
   .poss-left{margin-top:1px}
 
-  /* zone 2-4 — court (smaller) → your team → opponent/feed, stacked */
   main{padding:10px; gap:12px}
-  .court-wrap{order:-1}
-  .court{width:74vw; max-width:310px}       /* deliberately small so it doesn't dominate */
-  .token{width:40px}
-  .token .nm{font-size:10.5px}
+  .court{width:80vw; max-width:340px}       /* coach/fan: court is the whole scene */
+  .token{width:42px}
+  .token .nm{font-size:11px}
   .leftcol,.rightcol{width:100%}
-  .feed-wrap{height:230px}
+  .feed-wrap{height:240px}
 
-  /* zone 5 — free agency as a swipeable card row (cards keep full size) */
-  .shop-wrap{padding:8px 10px 14px}
-  .shop-head{flex-direction:column; align-items:stretch; gap:8px}
-  .shop-title{text-align:center}
+  /* GM shop as a swipeable card row (cards keep full size) */
+  .shop-wrap{padding:6px 0 10px}
+  .shop-head{align-items:center; gap:8px}
   .shop{display:flex; overflow-x:auto; gap:10px; padding:2px 2px 12px;
     scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;
     scrollbar-width:thin; scrollbar-color:var(--accent) transparent}
@@ -394,14 +430,9 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
   .shop .card{flex:0 0 60%; scroll-snap-align:center; touch-action:pan-x}
   .shop .card.sold{flex:0 0 60%; min-height:150px}
 
-  /* zone 6 — pinned bottom action bar: CAP · Reroll · Play, always reachable */
-  .controls{position:fixed; left:0; right:0; bottom:0; z-index:16; margin:0;
-    display:flex; align-items:center; gap:7px; flex-wrap:nowrap;
-    padding:8px 10px; background:rgba(11,14,19,.97); border-top:1px solid var(--line)}
-  .controls .cap-pill{flex:0 0 auto; padding:6px 11px; font-size:.85em}
-  .controls .cap-pill b{font-size:1.5em}
-  .controls button{flex:1 1 0; padding:11px 4px; font-size:.84em; white-space:nowrap}
-  #newgame{display:none}                    /* New Run is on the end-of-run overlay */
+  /* the phase bar buttons fill the width on phones */
+  .pgroup #reroll,.pgroup #newgame,.pgroup #to-gm{padding:11px 10px; font-size:.84em}
+  .pgroup #to-coach,.pgroup #play{padding:12px 8px}
 
   .pg-tables .agg td.yv,.pg-tables .agg td.ov{font-size:1.2em}
   .modal{padding:20px}
