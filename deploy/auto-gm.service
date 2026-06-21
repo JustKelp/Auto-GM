@@ -1,0 +1,13 @@
+[Unit]
+Description=Auto-GM (HARDWOOD) Flask App
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/auto-gm
+ExecStart=/home/ubuntu/auto-gm/.venv/bin/gunicorn -c gunicorn.conf.py app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
