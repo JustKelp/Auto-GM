@@ -349,7 +349,15 @@ function attachPointerDrag(el, cfg) {
   el.addEventListener("pointermove", (e) => {
     if (!pdrag || pdrag.pid !== e.pointerId) return;
     if (!pdrag.moved) {
-      if (Math.hypot(e.clientX - pdrag.sx, e.clientY - pdrag.sy) < 6) return;
+      const dx = e.clientX - pdrag.sx, dy = e.clientY - pdrag.sy;
+      if (Math.hypot(dx, dy) < 6) return;
+      // vLock (shop cards): a sideways swipe scrolls the row instead of dragging;
+      // only a clearly vertical drag picks the card up to sign it.
+      if (cfg.vLock && Math.abs(dx) > Math.abs(dy)) {
+        try { el.releasePointerCapture(pdrag.pid); } catch (_) {}
+        pdrag = null;
+        return;
+      }
       pdrag.moved = true;
       cfg.begin();
       pdrag.ghost = makeGhost(cfg.label);
@@ -556,8 +564,9 @@ function renderShop() {
          <div class="cfoot"><span class="abil">✦ ${p.ability_name || "—"}</span>
            <span class="cost" title="cap cost">$${p.cost}</span></div>
          <div class="zone">best at ${zone}</div>`;
-      attachPointerDrag(card, {                  // drag to a slot, or tap to sign
+      attachPointerDrag(card, {                  // swipe to scroll · drag up to a slot · tap to sign
         label: p.name,
+        vLock: true,                             // horizontal swipe scrolls the shop row
         begin: () => { draggedShop = i; highlightSlots(true); },
         end:   () => { draggedShop = null; highlightSlots(false); },
         canDrop: (s) => canDrop(s),
