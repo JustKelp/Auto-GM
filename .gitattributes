@@ -1,0 +1,5 @@
+# Keep shell scripts and configs LF so they run on the Linux VM regardless of OS
+*.sh        text eol=lf
+*.service   text eol=lf
+*.nginx     text eol=lf
+Procfile    text eol=lf
