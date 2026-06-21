@@ -5,7 +5,7 @@
 #   cd /home/ubuntu/auto-gm && bash deploy/setup.sh
 #
 # Sets up the venv + deps, installs the systemd service + nginx vhost, and starts
-# the app on 127.0.0.1:5053. DNS, the firewall (80/443 already open for the
+# the app on 127.0.0.1:5054. DNS, the firewall (80/443 already open for the
 # sibling apps), and certbot stay manual — see DEPLOY.md.
 set -euo pipefail
 APP_DIR=/home/ubuntu/auto-gm
@@ -30,7 +30,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 echo "==> Local smoke test"
 sleep 2
-curl -fsS http://127.0.0.1:5053/ >/dev/null && echo "OK: app responding on 5053"
+curl -fsS http://127.0.0.1:5054/ >/dev/null && echo "OK: app responding on 5054"
 
 cat <<'NEXT'
 
