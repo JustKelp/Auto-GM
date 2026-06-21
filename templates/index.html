@@ -33,60 +33,60 @@
 </header>
 
 <main>
-  <!-- LEFT: roster (2K lineup) + chemistry tracker (TFT traits) -->
+  <!-- LEFT: your team (compact) + opponent card -->
   <aside class="leftcol">
     <aside class="posbar" id="posbar"></aside>
+    <div id="opp-panel" class="teamcard opp hidden"></div>
   </aside>
 
-  <!-- CENTER: playbook half-court -->
-  <section class="court-wrap">
-    <div id="court" class="court">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="court-lines">
-        <rect x="1" y="1" width="98" height="98" rx="2"/>
-        <rect x="42" y="1" width="16" height="28"/>     <!-- paint (to FT line) -->
-        <circle cx="50" cy="29" r="8"/>                 <!-- ft circle (inside arc) -->
-        <path d="M 10 1 L 10 7 A 40 40 0 0 0 90 7 L 90 1"/> <!-- 3pt arc (r40 @ rim) -->
-      </svg>
-      <!-- playbook movement trails (pass / shot lines) -->
-      <svg id="trails" viewBox="0 0 100 100" preserveAspectRatio="none" class="trails"></svg>
-      <!-- Finals center-court logo (only during the championship build + game) -->
-      <div id="finals-logo" class="finals-logo hidden">
-        <div class="ring">
-          <span class="trophy">🏆</span>
-          <span class="ftxt">FINALS</span>
+  <!-- RIGHT: court on top, free agency under it, play-by-play under that -->
+  <div class="rightcol">
+    <section class="court-wrap">
+      <div id="court" class="court">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="court-lines">
+          <rect x="1" y="1" width="98" height="98" rx="2"/>
+          <rect x="42" y="1" width="16" height="28"/>     <!-- paint (to FT line) -->
+          <circle cx="50" cy="29" r="8"/>                 <!-- ft circle (inside arc) -->
+          <path d="M 10 1 L 10 7 A 40 40 0 0 0 90 7 L 90 1"/> <!-- 3pt arc (r40 @ rim) -->
+        </svg>
+        <!-- playbook movement trails (pass / shot lines) -->
+        <svg id="trails" viewBox="0 0 100 100" preserveAspectRatio="none" class="trails"></svg>
+        <!-- Finals center-court logo (only during the championship build + game) -->
+        <div id="finals-logo" class="finals-logo hidden">
+          <div class="ring">
+            <span class="trophy">🏆</span>
+            <span class="ftxt">FINALS</span>
+          </div>
+        </div>
+        <!-- hoop drawn ABOVE the players so made shots read clearly -->
+        <div id="hoop" class="hoop"><div class="board"></div><div class="rim"></div></div>
+        <!-- player tokens injected here -->
+      </div>
+      <p class="hint"><span id="spacing-note" class="warn"></span></p>
+    </section>
+
+    <!-- free agency (shop) — directly under the court, all cards visible -->
+    <section class="shop-wrap">
+      <div class="shop-head">
+        <span class="shop-title">FREE AGENCY
+          <span class="muted" id="unlock-note"></span></span>
+        <div class="controls">
+          <span class="cap-pill" title="cap space">CAP <b id="cap">0</b></span>
+          <button id="reroll">↻ Reroll (-{{ reroll_cost }})</button>
+          <button id="play" class="primary">▶ Play Round</button>
+          <button id="newgame">New Run</button>
         </div>
       </div>
-      <!-- hoop drawn ABOVE the players so made shots read clearly -->
-      <div id="hoop" class="hoop"><div class="board"></div><div class="rim"></div></div>
-      <!-- player tokens injected here -->
-    </div>
-    <p class="hint"><span id="spacing-note" class="warn"></span></p>
-  </section>
+      <div id="shop" class="shop"></div>
+    </section>
 
-  <!-- RIGHT: opponent card + play-by-play -->
-  <aside class="rightcol">
-    <div id="opp-panel" class="teamcard opp hidden"></div>
-    <div class="feed-wrap">
+    <!-- play-by-play — underneath free agency -->
+    <section class="feed-wrap" id="pbp">
       <h2>PLAY-BY-PLAY</h2>
       <div id="feed" class="feed"></div>
-    </div>
-  </aside>
-</main>
-
-<!-- BOTTOM: free agency (shop) -->
-<section class="shop-wrap">
-  <div class="shop-head">
-    <span class="shop-title">FREE AGENCY
-      <span class="muted" id="unlock-note"></span></span>
-    <div class="controls">
-      <span class="cap-pill" title="cap space">CAP <b id="cap">0</b></span>
-      <button id="reroll">↻ Reroll (-{{ reroll_cost }})</button>
-      <button id="play" class="primary">▶ Play Round</button>
-      <button id="newgame">New Run</button>
-    </div>
+    </section>
   </div>
-  <div id="shop" class="shop"></div>
-</section>
+</main>
 
 <!-- post-game box score (shown after every game) -->
 <div id="postgame" class="overlay hidden">

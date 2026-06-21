@@ -54,18 +54,27 @@ h1{font-size:1.15em; font-weight:800}
 .poss-left{font-size:.6em; color:var(--muted); font-weight:700; letter-spacing:.05em;
   text-transform:uppercase; margin-top:3px; min-height:1em}
 
-/* ---------- main 3-column layout -------------------------------------- */
-main{display:grid; grid-template-columns:224px 1fr 312px; gap:16px;
-  padding:16px; align-items:start}
-@media(max-width:1080px){main{grid-template-columns:1fr}}
+/* ---------- main layout: compact team (left) · court+shop+feed (right) - */
+main{display:grid; grid-template-columns:198px 1fr; gap:14px;
+  padding:14px; align-items:start}
+@media(max-width:640px){main{grid-template-columns:1fr}}
 
-/* ---------- LEFT: roster (2K lineup) ---------------------------------- */
-.leftcol{display:flex; flex-direction:column}
-.posbar{display:flex; flex-direction:column; gap:7px}
+/* ---------- LEFT: your team (compact) + opponent --------------------- */
+.leftcol{display:flex; flex-direction:column; gap:10px}
+.posbar{display:flex; flex-direction:column; gap:5px}
 .panel-head{font-size:.7em; font-weight:800; letter-spacing:.14em; color:var(--muted);
   text-transform:uppercase}
 .slot{background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--line);
-  border-radius:9px; padding:7px 9px; transition:border-color .15s, background .15s}
+  border-radius:8px; padding:5px 7px; transition:border-color .15s, background .15s}
+/* compact YOUR TEAM bar */
+.slot .pos{font-size:.62em}
+.slot .filled{margin:3px 0 4px}
+.slot .who b{font-size:.78em}
+.slot .who .arch,.slot .who .abil{font-size:.62em}
+.slot .statline{font-size:.62em; margin-top:1px}
+.lvlbar{height:6px; margin-bottom:4px}
+.team-tot{padding:5px 7px; font-size:.64em}
+.chem-box{padding:6px}
 .slot.t1{border-left-color:var(--t1)} .slot.t2{border-left-color:var(--t2)}
 .slot.t3{border-left-color:var(--t3)} .slot.t4{border-left-color:var(--t4)}
 .slot.t5{border-left-color:var(--t5)} .slot.t6{border-left-color:var(--t6)}
@@ -143,8 +152,8 @@ main{display:grid; grid-template-columns:224px 1fr 312px; gap:16px;
 .token .nm .cmark{font-size:10px}
 
 /* ---------- CENTER: playbook court ------------------------------------ */
-.court-wrap{display:flex; flex-direction:column; gap:8px; align-items:center}
-.court{position:relative; width:100%; max-width:600px; aspect-ratio:1/1;
+.court-wrap{display:flex; flex-direction:column; gap:6px; align-items:center}
+.court{position:relative; width:100%; max-width:470px; aspect-ratio:1/1;
   background:
     repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 7%,rgba(255,255,255,.02) 7% 14%),
     linear-gradient(180deg,var(--court),var(--court2));
@@ -214,17 +223,19 @@ main{display:grid; grid-template-columns:224px 1fr 312px; gap:16px;
 .warn{color:var(--opp); font-weight:700}
 
 /* ---------- RIGHT: opponent + feed ------------------------------------ */
-.rightcol{display:flex; flex-direction:column; gap:12px}
+.rightcol{display:flex; flex-direction:column; gap:14px; min-width:0}
 .teamcard{background:var(--panel); border:1px solid var(--line); border-radius:10px;
   padding:10px; border-top:3px solid var(--opp)}
 .teamcard h3{margin:0 0 8px; font-size:.74em; letter-spacing:.12em; color:var(--opp)}
 .teamcard h3 .src{font-size:.8em; font-weight:700; letter-spacing:.04em; padding:1px 6px;
   border-radius:10px; background:rgba(255,107,94,.18); color:#ffb3ab; margin-left:6px}
 .teamcard h3 .src.bot{background:var(--panel2); color:var(--muted)}
-.teamcard .orow{display:flex; align-items:center; gap:8px; padding:5px 0;
+.teamcard{padding:8px}
+.teamcard .orow{display:flex; flex-wrap:wrap; align-items:center; gap:1px 8px; padding:4px 0;
   border-bottom:1px solid var(--line)}
 .teamcard .orow:last-child{border-bottom:0}
-.teamcard .oinfo{min-width:0; flex:1; line-height:1.25}
+.teamcard .orow .statline{flex:1 1 100%; justify-content:flex-start; gap:7px; margin-top:1px}
+.teamcard .oinfo{min-width:0; flex:1 1 100%; line-height:1.2}
 .teamcard .oinfo b{font-size:.8em; display:block; white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis}
 .teamcard .oinfo .osub{font-size:.66em; color:var(--muted); display:block; white-space:nowrap;
@@ -233,6 +244,8 @@ main{display:grid; grid-template-columns:224px 1fr 312px; gap:16px;
 
 .feed-wrap{background:var(--panel); border:1px solid var(--line); border-radius:10px;
   padding:10px; height:430px; display:flex; flex-direction:column}
+/* play-by-play relocated under free agency — a shorter, full-width strip */
+#pbp{height:190px}
 .feed-wrap h2{font-size:.8em; letter-spacing:.1em; color:var(--muted)}
 .feed{overflow-y:auto; flex:1; font-size:.88em; margin-top:6px}
 .feed .ev{padding:4px 8px; border-bottom:1px solid var(--line); border-left:3px solid transparent}
@@ -247,8 +260,8 @@ main{display:grid; grid-template-columns:224px 1fr 312px; gap:16px;
   background:linear-gradient(90deg,var(--accent),#ffe08a); border-radius:6px;
   padding:5px 9px; letter-spacing:.05em; font-size:.92em}
 
-/* ---------- BOTTOM: free agency (shop) -------------------------------- */
-.shop-wrap{padding:4px 16px 26px}
+/* ---------- free agency (shop) — now stacked under the court ---------- */
+.shop-wrap{padding:0}
 .shop-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
   flex-wrap:wrap; gap:8px}
 .shop-title{font-weight:800; letter-spacing:.1em}
@@ -262,8 +275,7 @@ button:hover{filter:brightness(1.25)}
 button.primary{background:linear-gradient(180deg,#5cb6ff,var(--you)); color:#04203b; border-color:transparent}
 button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 
-.shop{display:grid; grid-template-columns:repeat(5,1fr); gap:12px}
-@media(max-width:880px){.shop{grid-template-columns:repeat(2,1fr)}}
+.shop{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
 /* 2K-style player card */
 .card{position:relative; background:linear-gradient(180deg,var(--panel2),var(--panel));
   border:1px solid var(--line); border-top:3px solid var(--line); border-radius:11px;
