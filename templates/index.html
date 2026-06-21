@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HARDWOOD — Basketball Auto-Battler</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body
+  data-lineup-size="{{ lineup_size }}"
+  data-wins="{{ wins_to_finish }}"
+  data-losses="{{ losses_to_bust }}"
+  data-reroll="{{ reroll_cost }}"
+  data-tiers='{{ tier_unlock|tojson }}'
+  data-max-tier="{{ max_tier }}"
+  data-chem='{{ chemistry|tojson }}'>
+
+<header>
+  <h1><span class="logo">🏀 HARDWOOD</span> <span class="tag">Auto-Battler</span></h1>
+  <div class="scoreboard">
+    <div class="team you"><span class="label">YOU</span><span id="you-score">0</span>
+      <span id="you-poss" class="poss-left"></span></div>
+    <div class="mid">
+      <div id="round-label">Round 1</div>
+      <div id="phase-label" class="muted">Build phase</div>
+      <div id="record" class="record">0W – 0L</div>
+      <div id="clock" class="clock hidden">⏱ <span id="clock-time">12:00</span></div>
+    </div>
+    <div class="team opp"><span class="label">OPP</span><span id="opp-score">0</span>
+      <span id="opp-poss" class="poss-left"></span></div>
+  </div>
+  <div class="goal muted">🏆 Championship Run · {{ wins_to_finish }} wins clinches the Finals · eliminated at {{ losses_to_bust }} losses</div>
+</header>
+
+<main>
+  <!-- LEFT: roster (2K lineup) + chemistry tracker (TFT traits) -->
+  <aside class="leftcol">
+    <aside class="posbar" id="posbar"></aside>
+  </aside>
+
+  <!-- CENTER: playbook half-court -->
+  <section class="court-wrap">
+    <div id="court" class="court">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="court-lines">
+        <rect x="1" y="1" width="98" height="98" rx="2"/>
+        <rect x="42" y="1" width="16" height="28"/>     <!-- paint (to FT line) -->
+        <circle cx="50" cy="29" r="8"/>                 <!-- ft circle (inside arc) -->
+        <path d="M 10 1 L 10 7 A 40 40 0 0 0 90 7 L 90 1"/> <!-- 3pt arc (r40 @ rim) -->
+      </svg>
+      <!-- playbook movement trails (pass / shot lines) -->
+      <svg id="trails" viewBox="0 0 100 100" preserveAspectRatio="none" class="trails"></svg>
+      <!-- Finals center-court logo (only during the championship build + game) -->
+      <div id="finals-logo" class="finals-logo hidden">
+        <div class="ring">
+          <span class="trophy">🏆</span>
+          <span class="ftxt">FINALS</span>
+        </div>
+      </div>
+      <!-- hoop drawn ABOVE the players so made shots read clearly -->
+      <div id="hoop" class="hoop"><div class="board"></div><div class="rim"></div></div>
+      <!-- player tokens injected here -->
+    </div>
+    <p class="hint"><span id="spacing-note" class="warn"></span></p>
+  </section>
+
+  <!-- RIGHT: opponent card + play-by-play -->
+  <aside class="rightcol">
+    <div id="opp-panel" class="teamcard opp hidden"></div>
+    <div class="feed-wrap">
+      <h2>PLAY-BY-PLAY</h2>
+      <div id="feed" class="feed"></div>
+    </div>
+  </aside>
+</main>
+
+<!-- BOTTOM: free agency (shop) -->
+<section class="shop-wrap">
+  <div class="shop-head">
+    <span class="shop-title">FREE AGENCY
+      <span class="muted" id="unlock-note"></span></span>
+    <div class="controls">
+      <span class="cap-pill" title="cap space">CAP <b id="cap">0</b></span>
+      <button id="reroll">↻ Reroll (-{{ reroll_cost }})</button>
+      <button id="play" class="primary">▶ Play Round</button>
+      <button id="newgame">New Run</button>
+    </div>
+  </div>
+  <div id="shop" class="shop"></div>
+</section>
+
+<!-- post-game box score (shown after every game) -->
+<div id="postgame" class="overlay hidden">
+  <div class="modal wide">
+    <h2 id="pg-title"></h2>
+    <p id="pg-sub" class="muted"></p>
+    <div id="pg-tables" class="pg-tables"></div>
+    <button id="pg-btn" class="primary">Continue</button>
+  </div>
+</div>
+
+<div id="overlay" class="overlay hidden">
+  <div class="modal">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-body"></p>
+    <button id="overlay-btn" class="primary">New Run</button>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

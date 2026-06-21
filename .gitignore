@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Runtime state (snapshot opponents — regenerated at runtime)
+teams.json
+
+# Editor / OS / local agent settings
+.idea/
+.claude/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temp / scratch
+_*.txt
+*.bak
+*.log
