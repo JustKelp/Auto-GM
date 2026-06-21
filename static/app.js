@@ -286,6 +286,76 @@ function enableDrag(el, player) {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+// ---------------------------------------------------------------------------
+// Unified pointer drag (MOUSE + TOUCH) for shop cards & lineup rows onto the
+// YOUR-TEAM slots. Replaces HTML5 drag-and-drop, which mobile browsers don't
+// fire on touch. A "ghost" follows the finger; the slot under it highlights;
+// releasing over a valid slot runs the action. A no-move release is a tap.
+// ---------------------------------------------------------------------------
+let pdrag = null;
+
+function makeGhost(text) {
+  const g = document.createElement("div");
+  g.className = "drag-ghost";
+  g.textContent = text;
+  document.body.appendChild(g);
+  return g;
+}
+function slotAtPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const slot = el && el.closest("#posbar .slot");
+  return slot ? +slot.dataset.slot : null;
+}
+function setSlotOver(s, on) {
+  if (s == null) return;
+  const el = document.querySelector(`#posbar .slot[data-slot="${s}"]`);
+  if (el) el.classList.toggle("over", on);
+}
+
+// cfg: { label, begin(), end(), canDrop(slot), onDrop(slot), onTap?() }
+function attachPointerDrag(el, cfg) {
+  el.addEventListener("pointerdown", (e) => {
+    if (busy || (e.pointerType === "mouse" && e.button !== 0)) return;
+    if (e.target.closest("button")) return;          // buttons keep their own tap
+    pdrag = {pid: e.pointerId, sx: e.clientX, sy: e.clientY,
+             moved: false, ghost: null, over: null, cfg, el};
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!pdrag || pdrag.pid !== e.pointerId) return;
+    if (!pdrag.moved) {
+      if (Math.hypot(e.clientX - pdrag.sx, e.clientY - pdrag.sy) < 6) return;
+      pdrag.moved = true;
+      cfg.begin();
+      pdrag.ghost = makeGhost(cfg.label);
+      el.classList.add("drag-src");
+    }
+    e.preventDefault();
+    pdrag.ghost.style.left = e.clientX + "px";
+    pdrag.ghost.style.top = e.clientY + "px";
+    const raw = slotAtPoint(e.clientX, e.clientY);
+    const valid = (raw != null && cfg.canDrop(raw)) ? raw : null;
+    if (valid !== pdrag.over) {
+      setSlotOver(pdrag.over, false);
+      setSlotOver(valid, true);
+      pdrag.over = valid;
+    }
+  });
+  const finish = (e) => {
+    if (!pdrag || pdrag.pid !== e.pointerId) return;
+    const d = pdrag; pdrag = null;
+    try { d.el.releasePointerCapture(e.pointerId); } catch (_) {}
+    d.el.classList.remove("drag-src");
+    if (d.ghost) d.ghost.remove();
+    setSlotOver(d.over, false);
+    if (!d.moved) { if (cfg.onTap) cfg.onTap(); return; }
+    cfg.end();
+    if (d.over != null) cfg.onDrop(d.over);
+  };
+  el.addEventListener("pointerup", finish);
+  el.addEventListener("pointercancel", finish);
+}
+
 // ------------------------------------------------------------------- panels
 function render() {
   $("record").textContent = `${state.wins}W – ${state.losses}L`;
@@ -396,25 +466,14 @@ function renderPosbar() {
     if (p) {
       slot.querySelector(".x").onclick = () => !busy && sell(p.id);
       const filled = slot.querySelector(".filled");      // drag a signed player to re-slot/combine
-      filled.draggable = true;
-      filled.ondragstart = (e) => {
-        if (busy) { e.preventDefault(); return; }
-        draggedLineup = p.id; e.dataTransfer.effectAllowed = "move";
-        highlightLineup(p, true);
-      };
-      filled.ondragend = () => { draggedLineup = null; highlightLineup(p, false); };
+      attachPointerDrag(filled, {
+        label: p.name,
+        begin: () => { draggedLineup = p.id; highlightLineup(p, true); },
+        end:   () => { draggedLineup = null; highlightLineup(p, false); },
+        canDrop: (sl) => lineupDrop(sl),
+        onDrop: (sl) => moveLineup(p.id, sl),
+      });
     }
-    slot.ondragover = (e) => {
-      if ((draggedShop != null && canDrop(s)) || lineupDrop(s)) {
-        e.preventDefault(); slot.classList.add("over");
-      }
-    };
-    slot.ondragleave = () => slot.classList.remove("over");
-    slot.ondrop = (e) => {
-      e.preventDefault(); slot.classList.remove("over");
-      if (draggedShop != null && canDrop(s)) buy(draggedShop, s);
-      else if (draggedLineup != null && lineupDrop(s)) moveLineup(draggedLineup, s);
-    };
     bar.appendChild(slot);
   }
   const tot = document.createElement("div");
@@ -475,14 +534,14 @@ function renderShop() {
          <div class="cfoot"><span class="abil">✦ ${p.ability_name || "—"}</span>
            <span class="cost" title="cap cost">$${p.cost}</span></div>
          <div class="zone">best at ${zone}</div>`;
-      card.draggable = true;
-      card.ondragstart = (e) => {
-        if (busy) { e.preventDefault(); return; }
-        draggedShop = i; e.dataTransfer.effectAllowed = "move";
-        highlightSlots(true);
-      };
-      card.ondragend = () => { draggedShop = null; highlightSlots(false); };
-      card.onclick = () => !busy && buy(i);   // click = sign to first open slot
+      attachPointerDrag(card, {                  // drag to a slot, or tap to sign
+        label: p.name,
+        begin: () => { draggedShop = i; highlightSlots(true); },
+        end:   () => { draggedShop = null; highlightSlots(false); },
+        canDrop: (s) => canDrop(s),
+        onDrop: (s) => buy(i, s),
+        onTap: () => !busy && buy(i),            // tap = sign to first open slot
+      });
       card.querySelector(".freeze").onclick = (e) => {  // toggle hold (no reroll)
         e.stopPropagation();
         if (busy) return;

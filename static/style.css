@@ -85,9 +85,16 @@ main{display:grid; grid-template-columns:224px 1fr 312px; gap:16px;
 .slot.over{background:rgba(61,165,255,.2); border-color:var(--you)}
 .slot .empty{margin-top:6px; font-size:.74em; color:var(--muted);
   border:1px dashed var(--line); border-radius:6px; padding:9px 4px; text-align:center}
-.slot .filled{display:flex; align-items:center; gap:7px; margin:4px 0 6px; cursor:grab}
+.slot .filled{display:flex; align-items:center; gap:7px; margin:4px 0 6px; cursor:grab;
+  touch-action:none}            /* touch-action:none lets touch drag (not scroll) */
 .slot .filled:active{cursor:grabbing}
 .slot .filled .x{cursor:pointer}
+.drag-src{opacity:.45}
+/* floating label that follows the finger/cursor while dragging a card/player */
+.drag-ghost{position:fixed; z-index:40; pointer-events:none; transform:translate(-50%,-140%);
+  background:var(--accent); color:#0b0e13; font-weight:800; font-size:.8em;
+  padding:4px 10px; border-radius:7px; box-shadow:0 6px 18px rgba(0,0,0,.5);
+  white-space:nowrap}
 .slot .who{display:flex; flex-direction:column; line-height:1.2; min-width:0; flex:1}
 .slot .who b{font-size:.84em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .slot .who .arch{font-size:.66em; color:var(--muted); white-space:nowrap; overflow:hidden;
@@ -260,7 +267,8 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 /* 2K-style player card */
 .card{position:relative; background:linear-gradient(180deg,var(--panel2),var(--panel));
   border:1px solid var(--line); border-top:3px solid var(--line); border-radius:11px;
-  padding:10px; cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .12s}
+  padding:10px; cursor:pointer; touch-action:none;
+  transition:transform .12s, box-shadow .12s, border-color .12s}
 /* freeze toggle (SAP/Battlegrounds-style hold) */
 .card .freeze{flex:0 0 auto; width:22px; height:22px; padding:0; border-radius:6px;
   background:var(--panel); border:1px solid var(--line); color:var(--muted);
