@@ -312,12 +312,37 @@ function setSlotOver(s, on) {
   if (el) el.classList.toggle("over", on);
 }
 
+let pdragScroll = null;          // auto-scroll timer while dragging near an edge
+
+// recompute which slot is under the finger and update the highlight
+function pdragUpdateOver() {
+  if (!pdrag || !pdrag.moved) return;
+  const raw = slotAtPoint(pdrag.lastX, pdrag.lastY);
+  const valid = (raw != null && pdrag.cfg.canDrop(raw)) ? raw : null;
+  if (valid !== pdrag.over) {
+    setSlotOver(pdrag.over, false);
+    setSlotOver(valid, true);
+    pdrag.over = valid;
+  }
+}
+// while dragging near the top/bottom of the screen, scroll the page (mobile:
+// lets you drag a shop card up to the team even when they're far apart)
+function pdragAutoScroll() {
+  if (!pdrag || !pdrag.moved) return;
+  const y = pdrag.lastY, h = window.innerHeight, edge = 72;
+  let dy = 0;
+  if (y < edge) dy = -Math.ceil((edge - y) / 5) - 2;
+  else if (y > h - edge) dy = Math.ceil((y - (h - edge)) / 5) + 2;
+  if (dy) { window.scrollBy(0, dy); pdragUpdateOver(); }
+}
+
 // cfg: { label, begin(), end(), canDrop(slot), onDrop(slot), onTap?() }
 function attachPointerDrag(el, cfg) {
   el.addEventListener("pointerdown", (e) => {
     if (busy || (e.pointerType === "mouse" && e.button !== 0)) return;
     if (e.target.closest("button")) return;          // buttons keep their own tap
     pdrag = {pid: e.pointerId, sx: e.clientX, sy: e.clientY,
+             lastX: e.clientX, lastY: e.clientY,
              moved: false, ghost: null, over: null, cfg, el};
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
   });
@@ -329,21 +354,18 @@ function attachPointerDrag(el, cfg) {
       cfg.begin();
       pdrag.ghost = makeGhost(cfg.label);
       el.classList.add("drag-src");
+      pdragScroll = setInterval(pdragAutoScroll, 16);
     }
     e.preventDefault();
+    pdrag.lastX = e.clientX; pdrag.lastY = e.clientY;
     pdrag.ghost.style.left = e.clientX + "px";
     pdrag.ghost.style.top = e.clientY + "px";
-    const raw = slotAtPoint(e.clientX, e.clientY);
-    const valid = (raw != null && cfg.canDrop(raw)) ? raw : null;
-    if (valid !== pdrag.over) {
-      setSlotOver(pdrag.over, false);
-      setSlotOver(valid, true);
-      pdrag.over = valid;
-    }
+    pdragUpdateOver();
   });
   const finish = (e) => {
     if (!pdrag || pdrag.pid !== e.pointerId) return;
     const d = pdrag; pdrag = null;
+    if (pdragScroll) { clearInterval(pdragScroll); pdragScroll = null; }
     try { d.el.releasePointerCapture(e.pointerId); } catch (_) {}
     d.el.classList.remove("drag-src");
     if (d.ghost) d.ghost.remove();

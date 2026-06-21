@@ -341,30 +341,53 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .agg td.ov.lead{color:var(--opp); text-shadow:0 0 12px rgba(255,107,94,.5)}
 
 /* ---------- mobile / small screens ------------------------------------ */
+/* ---------- mobile / portrait — Super Auto Pets-style vertical bands ----
+   Same desktop content, stacked into horizontal "zones": a sticky scoreboard,
+   a smaller court, the team band, opponent/feed, a swipeable shop row, and a
+   pinned action bar so Play / Cap are always reachable without scrolling. */
 @media(max-width:640px){
-  header{grid-template-columns:1fr; gap:8px; padding:10px 12px; text-align:center}
-  h1{font-size:1.05em}
-  .goal{justify-self:center; text-align:center}
-  .scoreboard{gap:16px}
-  .scoreboard .team{min-width:58px}
-  .scoreboard .team #you-score,.scoreboard .team #opp-score{font-size:1.9em}
+  body{padding-bottom:66px}                 /* leave room for the fixed action bar */
+
+  /* zone 1 — sticky compact scoreboard */
+  header{position:sticky; top:0; z-index:15; grid-template-columns:1fr;
+    gap:3px; padding:7px 12px 8px; text-align:center;
+    background:linear-gradient(180deg,#11161f,#0b0e13)}
+  h1{font-size:.96em}
+  .goal{display:none}                       /* the record + clock carry the state */
+  .scoreboard{gap:18px}
+  .scoreboard .team{min-width:54px}
+  .scoreboard .team #you-score,.scoreboard .team #opp-score{font-size:1.75em}
   .scoreboard .mid{min-width:0}
-  .clock{font-size:1.3em}
+  .clock{font-size:1.2em; margin-top:1px}
+  .poss-left{margin-top:1px}
+
+  /* zone 2-4 — court (smaller) → your team → opponent/feed, stacked */
   main{padding:10px; gap:12px}
-  .court-wrap{order:-1}            /* court on top on phones */
-  .court{max-width:100%}
-  .feed-wrap{height:280px}
-  .shop-wrap{padding:4px 10px 22px}
-  .shop{grid-template-columns:repeat(2,1fr); gap:8px}
-  .shop-head{gap:6px}
-  .controls{flex-wrap:wrap; gap:6px}
-  button{padding:8px 12px}
-  .cap-pill{padding:6px 12px}
+  .court-wrap{order:-1}
+  .court{width:74vw; max-width:310px}       /* deliberately small so it doesn't dominate */
+  .token{width:40px}
+  .token .nm{font-size:10.5px}
+  .leftcol,.rightcol{width:100%}
+  .feed-wrap{height:230px}
+
+  /* zone 5 — free agency as a swipeable card row (cards keep full size) */
+  .shop-wrap{padding:8px 10px 14px}
+  .shop-head{flex-direction:column; align-items:stretch; gap:8px}
+  .shop-title{text-align:center}
+  .shop{display:flex; overflow-x:auto; gap:10px; padding:2px 2px 10px;
+    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch}
+  .shop .card{flex:0 0 58%; scroll-snap-align:center}
+  .shop .card.sold{flex:0 0 58%; min-height:150px}
+
+  /* zone 6 — pinned bottom action bar: CAP · Reroll · Play, always reachable */
+  .controls{position:fixed; left:0; right:0; bottom:0; z-index:16; margin:0;
+    display:flex; align-items:center; gap:7px; flex-wrap:nowrap;
+    padding:8px 10px; background:rgba(11,14,19,.97); border-top:1px solid var(--line)}
+  .controls .cap-pill{flex:0 0 auto; padding:6px 11px; font-size:.85em}
+  .controls .cap-pill b{font-size:1.5em}
+  .controls button{flex:1 1 0; padding:11px 4px; font-size:.84em; white-space:nowrap}
+  #newgame{display:none}                    /* New Run is on the end-of-run overlay */
+
   .pg-tables .agg td.yv,.pg-tables .agg td.ov{font-size:1.2em}
   .modal{padding:20px}
-  .token{width:44px}
-  .token .nm{font-size:11px}
-}
-@media(max-width:380px){
-  .shop{grid-template-columns:1fr}
 }
