@@ -368,6 +368,22 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .modal.wide{max-width:680px; width:92%}
 .hidden{display:none}
 
+/* player card (tap a court token) */
+.pcard{max-width:340px; width:90%; text-align:left; border-top:4px solid var(--line)}
+.pcard.t1{border-top-color:var(--t1)} .pcard.t2{border-top-color:var(--t2)}
+.pcard.t3{border-top-color:var(--t3)} .pcard.t4{border-top-color:var(--t4)}
+.pcard.t5{border-top-color:var(--t5)} .pcard.t6{border-top-color:var(--t6)}
+.pc-head{display:flex; align-items:flex-start; gap:10px; margin-bottom:12px}
+.pc-id{flex:1; min-width:0}
+.pc-id h2{margin:0; font-size:1.15em}
+.pc-sub{font-size:.8em; color:var(--muted)}
+.pcard .lvlbar{height:9px; margin:4px 0 12px}
+.pc-stats{justify-content:space-between; gap:8px; font-size:.95em; margin-bottom:12px}
+.pc-stats .st b{font-size:1.15em}
+.pc-abil{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+  padding:9px 11px; font-size:.85em; color:var(--accent); margin-bottom:16px}
+.pcard #pc-close{width:100%}
+
 /* ---------- Finals center-court logo ---------------------------------- */
 .finals-logo{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   z-index:1; pointer-events:none; opacity:.55}

@@ -276,9 +276,9 @@ function enableDrag(el, player) {
   el.addEventListener("pointerup", async (e) => {
     if (!el.classList.contains("dragging")) return;
     el.classList.remove("dragging", "release-zone");
-    // dragged OFF the court = release; a plain click does nothing now
+    // dragged OFF the court = release; a plain click opens the player card
     if (moved && offCourt(e)) { sell(player.id); return; }
-    if (!moved) return;
+    if (!moved) { showPlayerCard(player); return; }
     validate();
     await api("/api/reorder", {state, lineup: state.lineup});  // persist positions
   });
@@ -877,6 +877,25 @@ function showOverlay(outcome) {
   $("overlay").classList.remove("hidden");
 }
 
+// tap a court token (Coach phase) to inspect the full player card
+function showPlayerCard(p) {
+  const pos = POS_LABELS[p.slot] || p.abbr;
+  const card = document.querySelector("#playercard .pcard");
+  card.className = "modal pcard t" + (p.tier || 1);
+  card.innerHTML =
+    `<div class="pc-head">
+       <div class="pc-id"><h2>${p.name} ${chemMark(p.id)}</h2>
+         <span class="pc-sub">${pos} · ${p.archetype}</span></div>
+       <span class="tier t${p.tier || 1}" title="Tier ${p.tier || 1} (${GEM[p.tier]})">T${p.tier || 1}</span>
+     </div>
+     ${levelBar(p)}
+     <div class="pc-stats statline">${statHTML(p)}</div>
+     <div class="pc-abil">✦ <b>${p.ability_name || "No special ability"}</b></div>
+     <button id="pc-close" class="primary">Close</button>`;
+  $("playercard").classList.remove("hidden");
+  $("pc-close").onclick = () => $("playercard").classList.add("hidden");
+}
+
 // ------------------------------------------------------------------- boot
 async function newGame() {
   const r = await api("/api/start", {});
@@ -903,6 +922,9 @@ $("to-coach").onclick = () => {
   setView("coach");
 };
 $("to-gm").onclick = () => { if (!busy) setView("gm"); };
+$("playercard").onclick = (e) => {                 // click the backdrop to dismiss
+  if (e.target.id === "playercard") $("playercard").classList.add("hidden");
+};
 $("reroll").onclick = async () => {
   if (busy) return;
   const r = await api("/api/reroll", {state});
