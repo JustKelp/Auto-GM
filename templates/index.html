@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HARDWOOD — Basketball Auto-Battler</title>
+<title>HARDWOOD Basketball GM</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body
@@ -17,38 +17,35 @@
   data-chem='{{ chemistry|tojson }}'>
 
 <header>
-  <h1><span class="logo">🏀 HARDWOOD</span> <span class="tag">Auto-Battler</span></h1>
+  <h1><span class="logo">HARDWOOD</span> <span class="tag">GM</span></h1>
   <div class="scoreboard">
     <div class="team you"><span class="label">YOU</span><span id="you-score">0</span>
       <span id="you-poss" class="poss-left"></span></div>
     <div class="mid">
       <div id="round-label">Round 1</div>
       <div id="phase-label" class="muted">Build phase</div>
-      <div id="record" class="record">0W – 0L</div>
-      <div id="clock" class="clock hidden">⏱ <span id="clock-time">12:00</span></div>
+      <div id="record" class="record">0W 0L</div>
+      <div id="clock" class="clock hidden"><span id="clock-time">12:00</span></div>
     </div>
     <div class="team opp"><span class="label">OPP</span><span id="opp-score">0</span>
       <span id="opp-poss" class="poss-left"></span></div>
   </div>
   <!-- phase stepper: GM ▸ Coach ▸ Fan -->
   <nav id="phase-nav" class="phase-nav">
-    <span class="pstep" data-phase="gm"><b>1</b> GM<small>roster &amp; funds</small></span>
-    <span class="pstep" data-phase="coach"><b>2</b> Coach<small>positioning</small></span>
-    <span class="pstep" data-phase="fan"><b>3</b> Fan<small>watch</small></span>
+    <span class="pstep" data-phase="gm">GM<small>roster &amp; funds</small></span>
+    <span class="pstep" data-phase="coach">Coach<small>positioning</small></span>
+    <span class="pstep" data-phase="fan">Fan<small>watch</small></span>
   </nav>
 </header>
 
 <main>
-  <!-- LEFT: your team (GM only) -->
-  <aside class="leftcol">
-    <aside class="posbar hide-in-coach hide-in-fan" id="posbar"></aside>
-  </aside>
+  <!-- your team: build panel (GM, left) · roster on the RIGHT during the game (Fan) -->
+  <aside class="posbar hide-in-coach" id="posbar"></aside>
 
-  <!-- RIGHT: opponent (fan) · court (coach+fan) · free agency (gm) · feed (fan) -->
-  <div class="rightcol">
-    <div id="opp-panel" class="teamcard opp hidden hide-in-gm hide-in-coach"></div>
+  <!-- opponent roster: LEFT flank during the game (Fan only) -->
+  <div id="opp-panel" class="teamcard opp hidden hide-in-gm hide-in-coach"></div>
 
-    <section class="court-wrap hide-in-gm">
+  <section class="court-wrap hide-in-gm">
       <div id="court" class="court">
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="court-lines">
           <rect x="1" y="1" width="98" height="98" rx="2"/>
@@ -61,7 +58,6 @@
         <!-- Finals center-court logo (only during the championship build + game) -->
         <div id="finals-logo" class="finals-logo hidden">
           <div class="ring">
-            <span class="trophy">🏆</span>
             <span class="ftxt">FINALS</span>
           </div>
         </div>
@@ -69,10 +65,10 @@
         <div id="hoop" class="hoop"><div class="board"></div><div class="rim"></div></div>
         <!-- player tokens injected here -->
       </div>
-      <p class="court-cap hide-in-fan muted">Coach phase — drag players to set your tactics</p>
+      <p class="court-cap hide-in-fan muted">Coach phase: drag players to set your tactics</p>
     </section>
 
-    <!-- free agency (shop) — GM phase only -->
+    <!-- free agency (shop): GM phase only -->
     <section class="shop-wrap hide-in-coach hide-in-fan">
       <div class="shop-head">
         <span class="shop-title">FREE AGENCY
@@ -81,29 +77,28 @@
       <div id="shop" class="shop"></div>
     </section>
 
-    <!-- play-by-play — Fan phase only -->
-    <section class="feed-wrap hide-in-gm hide-in-coach" id="pbp">
-      <h2>PLAY-BY-PLAY</h2>
-      <div id="feed" class="feed"></div>
-    </section>
-  </div>
+  <!-- play-by-play: Fan phase only -->
+  <section class="feed-wrap hide-in-gm hide-in-coach" id="pbp">
+    <h2>PLAY-BY-PLAY</h2>
+    <div id="feed" class="feed"></div>
+  </section>
 </main>
 
 <!-- persistent phase action bar (pinned; swaps controls per phase) -->
 <div id="phasebar" class="phasebar">
   <div class="pgroup gm">
     <span class="cap-pill" title="cap space">CAP <b id="cap">0</b></span>
-    <button id="reroll">↻ Reroll (-{{ reroll_cost }})</button>
+    <button id="reroll">Reroll (-{{ reroll_cost }})</button>
     <button id="newgame">New Run</button>
-    <button id="to-coach" class="primary">Set Lineup →</button>
+    <button id="to-coach" class="primary">Set Lineup</button>
   </div>
   <div class="pgroup coach">
-    <button id="to-gm">← GM</button>
+    <button id="to-gm">Back to GM</button>
     <span id="spacing-note" class="warn"></span>
-    <button id="play" class="primary">▶ Tip Off</button>
+    <button id="play" class="primary">Tip Off</button>
   </div>
   <div class="pgroup fan">
-    <span class="watching muted">▶ Watching the game…</span>
+    <span class="watching muted">Watching the game</span>
   </div>
 </div>
 
@@ -129,6 +124,8 @@
 <div id="playercard" class="overlay hidden">
   <div class="modal pcard"></div>
 </div>
+
+<button id="sound-toggle" class="sound-btn" title="Toggle game sound">Sound on</button>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

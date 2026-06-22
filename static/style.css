@@ -1,258 +1,339 @@
 /* ============================================================================
-   HARDWOOD — auto-battler UI
-   Combines: TFT/Battlegrounds shop+synergy layout · NBA 2K player cards (OVR,
-   gem tiers, attribute bars) · basketball playbook half-court (lines, dashed
-   pass + shot trails). Pure CSS/SVG, system fonts — no images, no genAI.
+   HARDWOOD: fantasy basketball front office
+   Stat-table panels, jersey nameplates, a broadcast sim floor. Avoids the
+   "AI default" look: no indigo/purple, no gradient-on-everything, no
+   glassmorphism blur, no Inter. Identity comes from the Barlow family (sturdy
+   athletic type) plus a hardwood/ink palette.
    ============================================================================ */
-/* Jersey nameplate font: Oswald (SIL Open Font License — free/legal to use,
-   degrades to a condensed system stack offline). */
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap');
+/* Barlow + Barlow Semi Condensed: sturdy athletic faces (SIL OFL, free/legal),
+   heavier than the old Oswald/native stack so nothing reads thin. Body sits at
+   weight 500 by default. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
 :root{
-  --bg:#0b0e13; --bg2:#0e1219; --panel:#161b24; --panel2:#1b212c;
-  --line:#2a323d; --ink:#e9eef4; --muted:#8b97a6;
-  --you:#3da5ff; --opp:#ff6b5e; --good:#3ddc84; --court:#c8813f; --court2:#a96a2c;
-  --accent:#ffcf4d;
-  --off:#ff6b5e; --def:#3da5ff; --pas:#3ddc84; --stl:#ffcf4d;
-  /* tier gem colors (bronze · emerald · sapphire · amethyst · ruby · diamond) */
-  --t1:#9aa6b2; --t2:#3ddc84; --t3:#3da5ff; --t4:#c08bff; --t5:#ff6fae; --t6:#6fe3ff;
+  /* Broadcast palette fusing ESPN gamecast + DraftKings sportsbook + 2K MyTeam.
+     Near-black arena, slate panels, electric team colors. "Money green" is
+     reserved for wins/odds/positive (the sportsbook tell); gold = premium. */
+  --bg:#06080c; --bg2:#0c1016; --panel:#11161f; --panel2:#19202b;
+  --line:#242c39; --line2:#36404f; --ink:#f4f7fc; --muted:#8893a4;
+  --you:#2f9bff; --opp:#e83a48;            /* OPP = ESPN crimson */
+  --good:#22c55e; --money:#27e07a;         /* DraftKings-style money green */
+  --court:#c98a46; --court2:#95611f;
+  --accent:#ffc23d; --accent2:#ffd874; --accentink:#1a1206;
+  /* stat colors: SHT shooting · DEF defense · PLM playmaking · ATH athleticism */
+  --off:#ff7a3d; --def:#2f9bff; --pas:#27e07a; --stl:#ffc23d;
+  /* 2K MyTeam gem ladder (Rookie→HOF): Gold·Emerald·Sapphire·Ruby·Amethyst·Diamond */
+  --t1:#c79a3a; --t2:#1fbf6b; --t3:#2f9bff; --t4:#ff4d6a; --t5:#a06bf0; --t6:#74e6ff;
+  --t1glow:rgba(199,154,58,.5); --t2glow:rgba(31,191,107,.55); --t3glow:rgba(47,155,255,.55);
+  --t4glow:rgba(255,77,106,.55); --t5glow:rgba(160,107,240,.6); --t6glow:rgba(116,230,255,.7);
+  --r:10px;
+  --display:'Barlow Semi Condensed','Arial Narrow',sans-serif;
+  --shadow:0 6px 22px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box}
 body{
-  margin:0; background:radial-gradient(140% 120% at 50% -10%,#141b27,var(--bg));
-  color:var(--ink); font:14px/1.45 "Segoe UI","Inter",system-ui,Roboto,Arial,sans-serif;
+  margin:0;
+  background:
+    radial-gradient(1200px 520px at 50% -8%,rgba(47,155,255,.10),transparent 60%),
+    radial-gradient(900px 500px at 50% 108%,rgba(255,194,61,.06),transparent 60%),
+    var(--bg);
+  color:var(--ink);
+  font:500 14px/1.5 'Barlow',-apple-system,"Segoe UI",system-ui,Arial,sans-serif;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
 }
 h1,h2,h3{margin:0; letter-spacing:.2px}
-.muted{color:var(--muted); font-weight:400; font-size:.82em}
+.muted{color:var(--muted); font-weight:500; font-size:.82em}
 b{font-variant-numeric:tabular-nums}
+::selection{background:rgba(232,181,74,.3)}
 
-/* ---------- header + scoreboard --------------------------------------- */
+/* ---------- header: broadcast bar + score bug ------------------------- */
 header{display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
-  gap:14px; padding:10px 20px; border-bottom:1px solid var(--line);
-  background:linear-gradient(180deg,#11161f,#0b0e13)}
-h1{font-size:1.15em; font-weight:800}
-.logo{background:linear-gradient(90deg,var(--accent),#ff8a3d);
-  -webkit-background-clip:text; background-clip:text; color:transparent; font-weight:900}
-.tag{font-size:.55em; vertical-align:middle; background:var(--panel2);
-  border:1px solid var(--line); color:var(--muted); padding:2px 7px; border-radius:20px}
+  gap:14px; padding:9px 20px; border-bottom:2px solid var(--accent);
+  background:var(--bg2)}
+h1{font-size:1.05em; font-weight:800; display:flex; align-items:center; gap:9px}
+.logo{font-family:var(--display); font-weight:700; font-size:1.34em;
+  letter-spacing:.05em; color:var(--ink); text-transform:uppercase;
+  border-left:4px solid var(--accent); padding-left:9px}
+.tag{font-family:var(--display); font-size:.6em; letter-spacing:.16em; font-weight:600;
+  background:var(--accent); color:var(--accentink); padding:2px 8px; border-radius:3px;
+  text-transform:uppercase}
 .goal{justify-self:end; text-align:right}
 
-.scoreboard{display:flex; align-items:center; justify-content:center; gap:22px}
-.scoreboard .team{display:flex; flex-direction:column; align-items:center; min-width:74px}
-.scoreboard .label{font-size:.6em; letter-spacing:.18em; font-weight:800; color:var(--muted)}
-.scoreboard .team #you-score,.scoreboard .team #opp-score{font-size:2.3em; font-weight:900;
-  line-height:1; font-variant-numeric:tabular-nums}
-.team.you #you-score{color:var(--you); text-shadow:0 0 16px rgba(61,165,255,.4)}
-.team.opp #opp-score{color:var(--opp); text-shadow:0 0 16px rgba(255,107,94,.4)}
-.scoreboard .mid{text-align:center; min-width:130px}
-#round-label{font-weight:800; letter-spacing:.04em}
-#record{font-weight:800; font-variant-numeric:tabular-nums; color:var(--accent); font-size:.95em}
-/* possession game-clock + per-team possessions remaining */
-.clock{font-family:'Oswald',ui-monospace,"Courier New",monospace; font-weight:700;
-  font-size:1.55em; line-height:1.1; color:var(--accent); letter-spacing:.04em; margin-top:3px;
-  font-variant-numeric:tabular-nums; text-shadow:0 0 10px rgba(255,207,77,.45)}
-.poss-left{font-size:.6em; color:var(--muted); font-weight:700; letter-spacing:.05em;
-  text-transform:uppercase; margin-top:3px; min-height:1em}
+/* TV-style score bug */
+.scoreboard{display:flex; align-items:stretch; justify-content:center; gap:0;
+  background:linear-gradient(180deg,#0b0f15,#05070b); border:1px solid var(--line2);
+  border-radius:9px; overflow:hidden; box-shadow:var(--shadow)}
+.scoreboard .team{display:flex; align-items:center; gap:10px; padding:6px 16px; min-width:104px}
+.scoreboard .team.you{border-left:4px solid var(--you);
+  background:linear-gradient(90deg,rgba(47,155,255,.16),transparent)}
+.scoreboard .team.opp{border-right:4px solid var(--opp); flex-direction:row-reverse;
+  background:linear-gradient(270deg,rgba(255,77,77,.16),transparent)}
+.scoreboard .label{font-family:var(--display); font-size:.78em; letter-spacing:.14em;
+  font-weight:700; color:var(--ink); opacity:.85}
+.scoreboard .team #you-score,.scoreboard .team #opp-score{font-family:var(--display);
+  font-size:2.3em; font-weight:700; line-height:1; font-variant-numeric:tabular-nums;
+  display:inline-block; text-shadow:0 2px 6px rgba(0,0,0,.6)}
+#you-score.pop,#opp-score.pop{animation:scorepop .43s ease-out}
+@keyframes scorepop{0%{transform:scale(1)}35%{transform:scale(1.5)}100%{transform:scale(1)}}
+.team.you #you-score{color:var(--you)} .team.opp #opp-score{color:var(--opp)}
+.scoreboard .mid{text-align:center; min-width:132px; padding:5px 14px;
+  background:var(--panel); display:flex; flex-direction:column; justify-content:center}
+#round-label{font-family:var(--display); font-weight:600; letter-spacing:.06em; font-size:.96em}
+#phase-label{font-size:.74em}
+#record{font-family:var(--display); font-weight:700; font-variant-numeric:tabular-nums;
+  color:var(--accent); font-size:.9em; letter-spacing:.04em}
+.clock{font-family:var(--display),ui-monospace,monospace; font-weight:700; font-size:1.45em;
+  line-height:1.1; color:var(--ink); letter-spacing:.05em; margin-top:2px;
+  font-variant-numeric:tabular-nums}
+.poss-left{font-size:.58em; color:var(--muted); font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; margin:0 4px; min-height:1em}
 
-/* ---------- PHASES — GM ▸ Coach ▸ Fan (Super Auto Pets-style scenes) ----
-   Each phase shows only what it needs. Body carries view-gm/view-coach/view-fan;
-   elements tagged hide-in-* drop out of the phases they don't belong to. */
+
+/* ---------- PHASES — GM ▸ Coach ▸ Fan (scene separation) -------------- */
 body.view-gm    .hide-in-gm,
 body.view-coach .hide-in-coach,
 body.view-fan   .hide-in-fan{display:none !important}
-body{padding-bottom:62px}              /* room for the pinned phase bar */
+body{padding-bottom:64px}
 
-/* phase stepper in the header */
-.phase-nav{grid-column:1/-1; justify-self:center; display:flex; gap:6px; margin-top:2px}
-.pstep{display:flex; align-items:center; gap:6px; padding:4px 12px; border-radius:20px;
-  background:var(--panel2); border:1px solid var(--line); color:var(--muted);
-  font-size:.74em; font-weight:700; letter-spacing:.03em}
-.pstep b{display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px;
-  border-radius:50%; background:var(--line); color:var(--ink); font-size:.86em}
-.pstep small{font-weight:400; font-size:.82em; opacity:.7}
-.pstep.active{background:linear-gradient(180deg,#5cb6ff,var(--you)); border-color:transparent;
-  color:#04203b}
-.pstep.active b{background:#04203b; color:#fff}
-.pstep.active small{opacity:.85}
-.pstep.done{color:var(--good); border-color:rgba(61,220,132,.4)}
-.pstep.done b{background:var(--good); color:#04203b}
+/* phase nav: a clean segmented control (not a numbered wizard stepper) */
+.phase-nav{grid-column:1/-1; justify-self:center; display:inline-flex; margin-top:6px;
+  border:1px solid var(--line); border-radius:6px; overflow:hidden; background:var(--panel)}
+.pstep{display:flex; flex-direction:column; align-items:center; padding:5px 18px;
+  color:var(--muted); font-family:var(--display); font-size:.8em; font-weight:600;
+  letter-spacing:.08em; text-transform:uppercase; border-right:1px solid var(--line);
+  transition:background .15s,color .15s}
+.pstep:last-child{border-right:0}
+.pstep b{display:none}                               /* no number markers */
+.pstep small{font-family:'Barlow',sans-serif; font-weight:500; font-size:.76em;
+  letter-spacing:.01em; text-transform:none; opacity:.7}
+.pstep.active{background:var(--accent); color:var(--accentink)}
+.pstep.active small{opacity:.8}
+.pstep.done{color:var(--good)}
+.pstep.done.active{background:var(--good); color:#05230f}
 
-/* pinned phase action bar (PC + mobile alike) */
+/* pinned phase action bar */
 .phasebar{position:fixed; left:0; right:0; bottom:0; z-index:16;
-  display:flex; justify-content:center; padding:8px 12px;
-  background:rgba(11,14,19,.97); border-top:1px solid var(--line)}
-.pgroup{display:none; align-items:center; gap:9px; width:100%; max-width:760px}
+  display:flex; justify-content:center; padding:9px 12px;
+  background:var(--bg2); border-top:1px solid var(--line2)}
+.pgroup{display:none; align-items:center; gap:9px; width:100%; max-width:780px}
 body.view-gm .pgroup.gm,
 body.view-coach .pgroup.coach,
 body.view-fan .pgroup.fan{display:flex}
 .pgroup .cap-pill{flex:0 0 auto}
 .pgroup #reroll,.pgroup #newgame,.pgroup #to-gm{flex:0 0 auto}
-.pgroup #to-coach,.pgroup #play{flex:1 1 auto; max-width:280px; margin-left:auto}
+.pgroup #to-coach,.pgroup #play{flex:1 1 auto; max-width:300px; margin-left:auto}
 .pgroup #spacing-note{flex:1 1 auto; text-align:center}
-.pgroup .watching{flex:1 1 auto; text-align:center; font-weight:700}
+.pgroup .watching{flex:1 1 auto; text-align:center; font-weight:700; color:var(--muted)}
 .court-cap{font-size:.78em; margin:2px 0 0; text-align:center}
 
-/* ---------- main layout: compact team (left) · court+shop+feed (right) - */
-main{display:grid; grid-template-columns:198px 1fr; gap:14px;
-  padding:14px; align-items:start}
-/* Coach & Fan don't need the team column — center the court */
-body.view-coach main,
-body.view-fan main{grid-template-columns:1fr; max-width:760px; margin:0 auto}
-@media(max-width:640px){main{grid-template-columns:1fr}}
+/* ---------- main layout ----------------------------------------------- */
+main{display:grid; gap:16px; padding:16px; align-items:start; margin:0 auto}
+#posbar{grid-area:team}
+#opp-panel{grid-area:opp}
+.court-wrap{grid-area:court}
+.shop-wrap{grid-area:shop}
+.feed-wrap{grid-area:feed}
 
-/* ---------- LEFT: your team (compact) + opponent --------------------- */
-.leftcol{display:flex; flex-direction:column; gap:10px}
-.posbar{display:flex; flex-direction:column; gap:5px}
-.panel-head{font-size:.7em; font-weight:800; letter-spacing:.14em; color:var(--muted);
-  text-transform:uppercase}
+/* GM: your team (build) left, free agency right */
+body.view-gm main{max-width:1180px; grid-template-columns:206px 1fr;
+  grid-template-areas:"team shop"}
+/* Coach: just the court, centered (give it room — positioning is the skill layer) */
+body.view-coach main{max-width:900px; grid-template-columns:1fr;
+  grid-template-areas:"court"}
+body.view-coach .court{max-width:820px}
+/* Fan / GAME DAY: a versus tale-of-the-tape. Sides MATCH the scoreboard —
+   YOUR team on the LEFT (like the YOU score), opponent on the RIGHT, court in
+   the middle; play-by-play ticker full width below. */
+body.view-fan main{max-width:1200px;
+  grid-template-columns:minmax(186px,236px) minmax(0,1fr) minmax(186px,236px);
+  grid-template-areas:
+    "team court opp"
+    "feed feed feed"}
+
+/* --- game-day team panels: symmetric cards flanking the court --- */
+body.view-fan #posbar{background:var(--panel); border:1px solid var(--line);
+  border-top:3px solid var(--you); border-radius:10px; padding:9px;
+  pointer-events:none; transition:box-shadow .25s, border-color .25s}
+body.view-fan #posbar .panel-head{color:var(--you)}
+body.view-fan .slot .empty,
+body.view-fan .slot .x{display:none}                 /* read-only roster while watching */
+#opp-panel{transition:box-shadow .25s, border-color .25s}
+/* possession glow: highlight the team currently on offense */
+body[data-possession="you"] #posbar{border-color:var(--you);
+  box-shadow:0 0 0 2px var(--you), 0 0 20px rgba(63,127,184,.4)}
+body[data-possession="opp"] #opp-panel{border-color:var(--opp);
+  box-shadow:0 0 0 2px var(--opp), 0 0 20px rgba(192,80,63,.4)}
+body.view-fan .court{max-width:760px}                /* the court is the centerpiece */
+
+/* ---------- LEFT: your team roster ------------------------------------ */
+.leftcol{display:flex; flex-direction:column; gap:11px}
+.posbar{display:flex; flex-direction:column; gap:6px}
+.panel-head{font-family:var(--display); font-size:.78em; font-weight:600;
+  letter-spacing:.14em; color:var(--muted); text-transform:uppercase; margin-bottom:1px}
 .slot{background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--line);
-  border-radius:8px; padding:5px 7px; transition:border-color .15s, background .15s}
-/* compact YOUR TEAM bar */
-.slot .pos{font-size:.62em}
-.slot .filled{margin:3px 0 4px}
-.slot .who b{font-size:.78em}
-.slot .who .arch,.slot .who .abil{font-size:.62em}
-.slot .statline{font-size:.62em; margin-top:1px}
-.lvlbar{height:6px; margin-bottom:4px}
-.team-tot{padding:5px 7px; font-size:.64em}
-.chem-box{padding:6px}
+  border-radius:9px; padding:6px 8px; transition:border-color .15s, background .15s}
+.slot .pos{font-family:var(--display); font-size:.68em; letter-spacing:.06em;
+  font-weight:600; color:var(--muted); text-transform:uppercase}
+.slot .filled{margin:4px 0 5px}
+.slot .who b{font-size:.82em}
+.slot .who .arch,.slot .who .abil{font-size:.64em}
+.slot .statline{font-size:.66em; margin-top:2px}
+.team-tot{padding:6px 8px; font-size:.66em}
 .slot.t1{border-left-color:var(--t1)} .slot.t2{border-left-color:var(--t2)}
 .slot.t3{border-left-color:var(--t3)} .slot.t4{border-left-color:var(--t4)}
 .slot.t5{border-left-color:var(--t5)} .slot.t6{border-left-color:var(--t6)}
-.slot .pos{font-size:.66em; letter-spacing:.08em; font-weight:800; color:var(--muted)}
-/* level bar at the top of the player card (fills as copies are absorbed) */
-.lvlbar{position:relative; height:8px; border-radius:5px; background:#0c1118;
+
+/* level bar (fills as copies are absorbed) */
+.lvlbar{position:relative; height:7px; border-radius:4px; background:#0c1017;
   border:1px solid var(--line); overflow:hidden; margin-bottom:6px}
-.lvlbar i{display:block; height:100%; background:linear-gradient(90deg,var(--accent),#ffe08a);
+.lvlbar i{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2));
   transition:width .4s ease}
-.lvlbar.max i{background:linear-gradient(90deg,#ffd24d,#fff0b8)}
+.lvlbar.max i{background:linear-gradient(90deg,var(--accent2),#fff2cf)}
 .lvlbar .lp{position:absolute; top:-1px; right:4px; font-size:8px; font-weight:900;
-  color:#fff; text-shadow:0 1px 2px #000; line-height:10px}
-.slot.eligible{border-color:var(--you); background:rgba(61,165,255,.08)}
+  color:#fff; text-shadow:0 1px 2px #000; line-height:9px}
+
+.slot.eligible{border-color:var(--you); background:rgba(74,158,239,.08)}
 .slot.eligible .empty{border-color:var(--you); color:var(--you)}
-.slot.mergeable{border-color:var(--accent); background:rgba(255,207,77,.08)}
+.slot.mergeable{border-color:var(--accent); background:rgba(232,181,74,.08)}
 .slot.mergeable .filled{outline:2px dashed var(--accent); outline-offset:2px; border-radius:6px}
-.slot.over{background:rgba(61,165,255,.2); border-color:var(--you)}
+.slot.over{background:rgba(74,158,239,.18); border-color:var(--you)}
 .slot .empty{margin-top:6px; font-size:.74em; color:var(--muted);
-  border:1px dashed var(--line); border-radius:6px; padding:9px 4px; text-align:center}
+  border:1px dashed var(--line2); border-radius:6px; padding:10px 4px; text-align:center}
 .slot .filled{display:flex; align-items:center; gap:7px; margin:4px 0 6px; cursor:grab;
-  touch-action:none}            /* touch-action:none lets touch drag (not scroll) */
+  touch-action:none}
 .slot .filled:active{cursor:grabbing}
 .slot .filled .x{cursor:pointer}
 .drag-src{opacity:.45}
-/* floating label that follows the finger/cursor while dragging a card/player */
 .drag-ghost{position:fixed; z-index:40; pointer-events:none; transform:translate(-50%,-140%);
-  background:var(--accent); color:#0b0e13; font-weight:800; font-size:.8em;
-  padding:4px 10px; border-radius:7px; box-shadow:0 6px 18px rgba(0,0,0,.5);
-  white-space:nowrap}
-.slot .who{display:flex; flex-direction:column; line-height:1.2; min-width:0; flex:1}
+  background:var(--accent); color:#1a1206; font-weight:800; font-size:.8em;
+  padding:4px 10px; border-radius:6px; box-shadow:var(--shadow); white-space:nowrap}
+.slot .who{display:flex; flex-direction:column; line-height:1.25; min-width:0; flex:1}
 .slot .who b{font-size:.84em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .slot .who .arch{font-size:.66em; color:var(--muted); white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis}
-/* clear level badge in the team panel */
-.lvl-badge{display:inline-block; font-size:.92em; font-weight:900; letter-spacing:.02em;
-  background:var(--accent); color:#0b0e13; border-radius:4px; padding:0 5px; line-height:1.5;
+/* archetype name is the player's identity — render it bold + bright wherever shown */
+.arch-name{font-weight:700; color:var(--ink)}
+.lvl-badge{display:inline-block; font-family:var(--display); font-size:.92em; font-weight:700;
+  background:var(--accent); color:#1a1206; border-radius:3px; padding:0 5px; line-height:1.5;
   vertical-align:middle}
-.lvl-badge.max{background:linear-gradient(90deg,#ffd24d,#fff0b8);
-  box-shadow:0 0 8px rgba(255,207,77,.6)}
+.lvl-badge.max{background:linear-gradient(90deg,var(--accent2),#fff2cf)}
 .slot .who .abil{font-size:.66em; font-weight:700; color:var(--accent); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis}
-.slot .x{background:none; padding:2px 4px; color:var(--muted); align-self:flex-start}
+.slot .x{background:none; border:0; padding:1px 4px; color:var(--muted); align-self:flex-start;
+  font-family:var(--display); font-size:.66em; font-weight:600; letter-spacing:.05em;
+  text-transform:uppercase; cursor:pointer}
 .slot .x:hover{color:var(--opp)}
 
-/* attribute numbers (no bars — skill is uncapped) */
+/* attribute numbers */
 .statline{display:flex; justify-content:space-between; gap:4px; font-size:.7em; margin-top:2px}
 .st{font-variant-numeric:tabular-nums; font-weight:700}
 .st b{font-weight:900}
-
 .team-tot{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
   padding:6px 8px; font-size:.7em; display:flex; justify-content:space-between;
   flex-wrap:wrap; gap:3px}
-.st{font-variant-numeric:tabular-nums; font-weight:700}
-/* SHT shooting (red) · DEF defense (blue) · PLM playmaking (green) · ATH athleticism (gold) */
 .st.sht{color:var(--off)} .st.def{color:var(--def)} .st.plm{color:var(--pas)} .st.ath{color:var(--stl)}
 
-/* chemistry tracker (TFT trait list) */
+/* 2K-style OVR rating badge */
+.ovr{flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  width:38px; height:38px; border-radius:9px; line-height:1;
+  background:linear-gradient(160deg,#2b3543,#161d27); border:1px solid var(--line2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 2px 6px rgba(0,0,0,.4)}
+.ovr b{font-family:var(--display); font-size:1.2em; font-weight:700; font-variant-numeric:tabular-nums}
+.ovr small{font-family:var(--display); font-size:.5em; font-weight:700; letter-spacing:.12em;
+  color:var(--muted); margin-top:1px}
+.ovr.elite{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent),0 2px 8px rgba(255,194,61,.4)}
+.ovr.elite b{color:var(--accent2)}
+.ovr.great{border-color:var(--you)} .ovr.great b{color:#9fd0ff}
+.ovr.good b{color:var(--ink)} .ovr.base b{color:var(--muted)}
+.slot .filled .ovr{width:34px; height:34px}
+
+/* chemistry tracker */
 .chem-box{background:var(--panel); border:1px solid var(--line); border-radius:9px;
   padding:8px; display:flex; flex-direction:column; gap:5px; margin-top:2px}
-.chem{display:flex; align-items:center; gap:7px; padding:4px 7px; border-radius:7px;
+.chem{display:flex; align-items:center; gap:7px; padding:5px 8px; border-radius:6px;
   border:1px solid transparent; font-size:.74em; font-weight:700}
-.chem .ck{font-size:.72em; font-weight:900; letter-spacing:.06em; padding:1px 5px;
-  border-radius:4px; color:#0b0e13}
+.chem .ck{font-family:var(--display); font-size:.72em; font-weight:700; letter-spacing:.06em;
+  padding:1px 5px; border-radius:3px; color:#10141b}
 .chem .cn{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .chem .cd{font-variant-numeric:tabular-nums; opacity:.7}
-.chem.duo{background:rgba(61,165,255,.12); border-color:var(--you); color:#cfe6ff}
+.chem.duo{background:rgba(74,158,239,.12); border-color:rgba(74,158,239,.5); color:#cfe6ff}
 .chem.duo .ck{background:var(--you)}
-.chem.trio{background:rgba(255,207,77,.13); border-color:var(--accent); color:#ffe6a3}
+.chem.trio{background:rgba(232,181,74,.13); border-color:rgba(232,181,74,.5); color:#ffe6a3}
 .chem.trio .ck{background:var(--accent)}
 .chem-empty{font-size:.72em; color:var(--muted)}
-/* duo/trio membership indicators (on tokens + roster + opponent) */
-.cmark{font-size:.82em; margin-left:2px; vertical-align:middle; line-height:1}
-.cmark.duo{color:var(--you); text-shadow:0 0 3px rgba(61,165,255,.7)}
-.cmark.trio{color:var(--accent); text-shadow:0 0 3px rgba(255,207,77,.7)}
-.token .nm .cmark{font-size:10px}
+.cmark{display:inline-block; font-family:var(--display); font-size:.6em; font-weight:700;
+  line-height:1.5; padding:0 4px; border-radius:3px; margin-left:4px; vertical-align:middle;
+  letter-spacing:.04em}
+.cmark.duo{background:var(--you); color:#fff} .cmark.trio{background:var(--accent); color:var(--accentink)}
+.token .nm .cmark{font-size:7.5px; padding:0 3px}
 
-/* ---------- CENTER: playbook court ------------------------------------ */
-.court-wrap{display:flex; flex-direction:column; gap:6px; align-items:center}
-.court{position:relative; width:100%; max-width:470px; aspect-ratio:1/1;
+/* ---------- CENTER: broadcast court ----------------------------------- */
+.court-wrap{display:flex; flex-direction:column; gap:7px; align-items:center}
+.court{position:relative; width:100%; max-width:680px; aspect-ratio:1/1;
+  container-type:inline-size;   /* lets tokens size as a % of court width (cqw) */
   background:
-    repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 7%,rgba(255,255,255,.02) 7% 14%),
-    linear-gradient(180deg,var(--court),var(--court2));
-  border-radius:10px; overflow:hidden; touch-action:none;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.45)}
+    repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 6.66%,rgba(255,255,255,.03) 6.66% 13.33%),
+    radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.10),transparent 55%),
+    linear-gradient(170deg,var(--court),var(--court2));
+  border-radius:14px; overflow:hidden; touch-action:none;
+  border:1px solid rgba(0,0,0,.4);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.28), inset 0 0 70px rgba(0,0,0,.30),
+    0 10px 40px rgba(0,0,0,.55)}
 .court-lines,.trails{position:absolute; inset:0; width:100%; height:100%}
-.court-lines *{fill:none; stroke:rgba(255,255,255,.55); stroke-width:.4}
+.court-lines *{fill:none; stroke:rgba(255,255,255,.6); stroke-width:.4}
 .trails{pointer-events:none; z-index:4}
 .trail{stroke-width:.7; fill:none}
-.trail.pass{stroke:var(--accent); stroke-dasharray:2.4 1.8;
-  filter:drop-shadow(0 0 1px rgba(255,207,77,.8)); animation:dash .6s linear infinite}
-.trail.shot{stroke:#7fdfff; stroke-dasharray:1.4 1.2; opacity:.9}
+.trail.pass{stroke:var(--accent); stroke-dasharray:2.4 1.8; animation:dash .6s linear infinite}
+.trail.shot{stroke:#8fdcff; stroke-dasharray:1.4 1.2; opacity:.9}
 @keyframes dash{to{stroke-dashoffset:-8.4}}
 
 .hoop{position:absolute; left:50%; top:7%; transform:translate(-50%,-50%);
   z-index:5; pointer-events:none; width:38px}
-.hoop .board{width:34px; height:5px; margin:0 auto 1px; border-radius:1px;
+.hoop .board{width:30px; height:4px; margin:0 auto 1px; border-radius:1px;
   background:linear-gradient(#fff,#d2d2d2); box-shadow:0 1px 3px rgba(0,0,0,.6)}
-.hoop .rim{width:20px; height:20px; margin:0 auto; border-radius:50%;
+.hoop .rim{width:17px; height:17px; margin:0 auto; border-radius:50%;
   border:3px solid #ff7a1a; background:rgba(0,0,0,.18);
-  box-shadow:0 0 6px rgba(0,0,0,.6); transition:border-color .15s, box-shadow .15s}
-.hoop.score .rim{border-color:var(--good); box-shadow:0 0 16px 5px var(--good)}
+  box-shadow:0 1px 4px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s}
+.hoop.score .rim{border-color:var(--good); box-shadow:0 0 14px 4px rgba(55,204,125,.7)}
 
-.token{position:absolute; width:48px; transform:translate(-50%,-50%); text-align:center;
-  user-select:none; z-index:2; transition:left .55s ease, top .55s ease}
+/* Court:player ratio sized in cqw (1cqw = 1% of court width) so it stays
+   constant at every court size. A real NBA player footprint is ~2.3 ft on a
+   50 ft-wide court ≈ 5% — the disc is 5cqw. */
+.token{position:absolute; width:14cqw; transform:translate(-50%,-50%); text-align:center;
+  user-select:none; z-index:2; transition:left .34s ease, top .34s ease}
 .token.mine{cursor:grab} .token.mine:active{cursor:grabbing}
-.token .disc{width:30px; height:30px; margin:0 auto; border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#5cb6ff,var(--you)); color:#04203b;
+.token .disc{width:5cqw; height:5cqw; margin:0 auto; border-radius:50%;
+  background:radial-gradient(circle at 35% 28%,#6cc1ff,var(--you)); color:#04243f;
   display:flex; align-items:center; justify-content:center; font-weight:900;
-  border:2.5px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.55); position:relative;
-  font-size:11px; letter-spacing:.3px; transition:transform .15s, box-shadow .15s}
-.token.opp .disc{background:radial-gradient(circle at 35% 30%,#ff9087,var(--opp)); color:#3a0d08}
-.token .lvl{position:absolute; top:-7px; right:-7px; background:var(--accent); color:#000;
-  font-size:9px; font-weight:800; border-radius:50%; width:15px; height:15px; line-height:15px}
-.token .nm{font-family:'Oswald','Arial Narrow','Roboto Condensed',system-ui,sans-serif;
-  font-size:12.5px; margin-top:2px; color:#fff; font-weight:600; letter-spacing:.5px;
+  border:0.34cqw solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.55); position:relative;
+  font-family:var(--display); font-size:2.1cqw; letter-spacing:.2px;
+  transition:transform .15s, box-shadow .15s}
+.token.opp .disc{background:radial-gradient(circle at 35% 28%,#ff8f8f,var(--opp)); color:#3a0808}
+.token .lvl{position:absolute; top:-0.8cqw; right:-1cqw; background:var(--accent); color:#1a1206;
+  font-size:1.5cqw; font-weight:800; border-radius:50%; width:2.7cqw; height:2.7cqw;
+  display:flex; align-items:center; justify-content:center}
+.token .nm{font-family:var(--display);
+  font-size:clamp(7px,2.35cqw,13px); margin-top:0.4cqw; color:#fff; font-weight:700; letter-spacing:.3px;
   text-transform:uppercase;
-  text-shadow:0 0 2px #000,0 1px 2px rgba(0,0,0,.95),0 0 5px rgba(0,0,0,.7);
+  text-shadow:0 1px 2px rgba(0,0,0,.95),0 0 4px rgba(0,0,0,.6);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.token .nm b{color:var(--accent)}
+.token .nm b{color:var(--accent2)}
 .token.act{z-index:3}
-.token.act .disc{transform:scale(1.32); box-shadow:0 0 0 3px var(--accent)}
+.token.act .disc{transform:scale(1.45); box-shadow:0 0 0 3px var(--accent)}
 .token.score .disc{box-shadow:0 0 0 4px var(--good)}
 .token.dragging{transition:none; z-index:6}
-/* dragged off the court = will be released on drop */
 .token.release-zone{opacity:.5}
 .token.release-zone .disc{border-color:var(--opp);
-  box-shadow:0 0 0 3px var(--opp), 0 0 14px 3px var(--opp); filter:grayscale(.4)}
+  box-shadow:0 0 0 3px var(--opp), 0 0 12px 2px rgba(239,95,87,.7); filter:grayscale(.4)}
 .token.conflict{z-index:4}
-.token.conflict .disc{border-color:#ff3b30;
-  box-shadow:0 0 0 4px #ff3b30, 0 0 12px 2px #ff3b30; animation:pulse .8s infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 6px #ff3b30, 0 0 18px 4px #ff3b30}}
+.token.conflict .disc{border-color:#ff3b30; box-shadow:0 0 0 4px #ff3b30; animation:pulse .8s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,59,48,.7)}}
 
-.ball{position:absolute; width:15px; height:15px; transform:translate(-50%,-50%);
+.ball{position:absolute; width:2.7cqw; height:2.7cqw; min-width:9px; min-height:9px;
+  transform:translate(-50%,-50%);
   border-radius:50%; z-index:6; pointer-events:none;
   background:radial-gradient(circle at 35% 30%,#ffc078,#e8782a 65%,#bd5a18);
   border:1px solid #6e3310; box-shadow:0 1px 5px rgba(0,0,0,.6);
-  transition:left .42s ease, top .42s ease, transform .2s}
+  transition:left .24s ease, top .24s ease, transform .2s}
 .ball::before{content:""; position:absolute; left:50%; top:0; bottom:0; width:1px;
   background:rgba(0,0,0,.55); transform:translateX(-.5px)}
 .ball::after{content:""; position:absolute; top:50%; left:0; right:0; height:1px;
@@ -260,23 +341,47 @@ body.view-fan main{grid-template-columns:1fr; max-width:760px; margin:0 auto}
 .ball.shot{transform:translate(-50%,-50%) scale(.7)}
 .ball.made{box-shadow:0 0 0 4px var(--good), 0 1px 5px rgba(0,0,0,.6)}
 
+/* --- juice: floating points + court screen-shake on impact --- */
+.pts-pop{position:absolute; transform:translate(-50%,-50%); z-index:7; pointer-events:none;
+  font-family:var(--display); font-weight:700; font-size:21px; color:var(--good);
+  text-shadow:0 2px 5px rgba(0,0,0,.85); animation:ptsrise .85s ease-out forwards}
+.pts-pop.three{font-size:27px; color:var(--accent2)}
+@keyframes ptsrise{
+  0%{opacity:0; transform:translate(-50%,-30%) scale(.6)}
+  18%{opacity:1; transform:translate(-50%,-95%) scale(1.15)}
+  100%{opacity:0; transform:translate(-50%,-270%) scale(1)}}
+.court.shake-sm{animation:shake-sm .28s ease-in-out}
+.court.shake-lg{animation:shake-lg .42s ease-in-out}
+@keyframes shake-sm{0%,100%{transform:translate(0,0)}25%{transform:translate(-2px,1px)}
+  50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,1px)}}
+@keyframes shake-lg{0%,100%{transform:translate(0,0)}15%{transform:translate(-4px,2px)}
+  35%{transform:translate(5px,-2px)}55%{transform:translate(-5px,1px)}75%{transform:translate(3px,2px)}}
+
+/* floating sound toggle, parked above the phase bar */
+.sound-btn{position:fixed; right:12px; bottom:74px; z-index:17; padding:6px 11px;
+  font-family:var(--display); font-size:.72em; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; background:var(--panel2); color:var(--muted);
+  border:1px solid var(--line2); border-radius:6px; cursor:pointer}
+.sound-btn:hover{color:var(--ink)}
+.sound-btn.off{color:var(--opp); border-color:var(--opp)}
+
 .hint{font-size:.8em; margin:2px 6px; min-height:1.1em}
 .warn{color:var(--opp); font-weight:700}
 
 /* ---------- RIGHT: opponent + feed ------------------------------------ */
 .rightcol{display:flex; flex-direction:column; gap:14px; min-width:0}
 .teamcard{background:var(--panel); border:1px solid var(--line); border-radius:10px;
-  padding:10px; border-top:3px solid var(--opp)}
-.teamcard h3{margin:0 0 8px; font-size:.74em; letter-spacing:.12em; color:var(--opp)}
-.teamcard h3 .src{font-size:.8em; font-weight:700; letter-spacing:.04em; padding:1px 6px;
-  border-radius:10px; background:rgba(255,107,94,.18); color:#ffb3ab; margin-left:6px}
+  padding:9px; border-top:3px solid var(--opp)}
+.teamcard h3{margin:0 0 8px; font-family:var(--display); font-size:.8em; letter-spacing:.1em;
+  color:var(--opp); text-transform:uppercase}
+.teamcard h3 .src{font-size:.78em; font-weight:600; letter-spacing:.04em; padding:1px 6px;
+  border-radius:4px; background:rgba(239,95,87,.16); color:#ffb3ab; margin-left:6px}
 .teamcard h3 .src.bot{background:var(--panel2); color:var(--muted)}
-.teamcard{padding:8px}
 .teamcard .orow{display:flex; flex-wrap:wrap; align-items:center; gap:1px 8px; padding:4px 0;
   border-bottom:1px solid var(--line)}
 .teamcard .orow:last-child{border-bottom:0}
 .teamcard .orow .statline{flex:1 1 100%; justify-content:flex-start; gap:7px; margin-top:1px}
-.teamcard .oinfo{min-width:0; flex:1 1 100%; line-height:1.2}
+.teamcard .oinfo{min-width:0; flex:1 1 100%; line-height:1.25}
 .teamcard .oinfo b{font-size:.8em; display:block; white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis}
 .teamcard .oinfo .osub{font-size:.66em; color:var(--muted); display:block; white-space:nowrap;
@@ -285,90 +390,97 @@ body.view-fan main{grid-template-columns:1fr; max-width:760px; margin:0 auto}
 
 .feed-wrap{background:var(--panel); border:1px solid var(--line); border-radius:10px;
   padding:10px; height:430px; display:flex; flex-direction:column}
-/* play-by-play relocated under free agency — a shorter, full-width strip */
-#pbp{height:190px}
-.feed-wrap h2{font-size:.8em; letter-spacing:.1em; color:var(--muted)}
+#pbp{height:200px}
+.feed-wrap h2{font-family:var(--display); font-size:.84em; letter-spacing:.1em;
+  color:var(--muted); text-transform:uppercase}
 .feed{overflow-y:auto; flex:1; font-size:.88em; margin-top:6px}
-.feed .ev{padding:4px 8px; border-bottom:1px solid var(--line); border-left:3px solid transparent}
+.feed .ev{padding:4px 9px; border-bottom:1px solid var(--line); border-left:3px solid transparent}
 .feed .you-ev{border-left-color:var(--you)}
 .feed .opp-ev{border-left-color:var(--opp)}
-.feed .made{color:var(--good); font-weight:700}
+.feed .made{color:var(--money); font-weight:700}
 .feed .steal{color:var(--opp); font-weight:700}
 .feed .pass{color:var(--muted)}
 .feed .miss{color:#aab4c0}
 .feed .reb{color:var(--accent); font-weight:700}
-.feed .head{font-weight:800; margin:10px 0 4px; color:#0b0e13; border-left:0;
-  background:linear-gradient(90deg,var(--accent),#ffe08a); border-radius:6px;
-  padding:5px 9px; letter-spacing:.05em; font-size:.92em}
+.feed .head{font-family:var(--display); font-weight:600; margin:10px 0 4px; color:var(--accentink);
+  border-left:0; background:var(--accent); border-radius:4px;
+  padding:5px 9px; letter-spacing:.05em; font-size:.92em; text-transform:uppercase}
 
-/* ---------- free agency (shop) — now stacked under the court ---------- */
+/* ---------- free agency (2K roster cards) ----------------------------- */
 .shop-wrap{padding:0}
-.shop-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+.shop-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:11px;
   flex-wrap:wrap; gap:8px}
-.shop-title{font-weight:800; letter-spacing:.1em}
-.cap-pill{background:var(--panel2); border:1px solid var(--line); border-radius:20px;
-  padding:7px 16px; font-size:.95em; font-weight:800; letter-spacing:.06em; color:var(--muted)}
-.cap-pill b{color:var(--accent); font-size:1.7em; margin-left:6px}
+.shop-title{font-family:var(--display); font-weight:600; letter-spacing:.1em;
+  text-transform:uppercase}
+.cap-pill{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+  padding:6px 15px; font-family:var(--display); font-size:.92em; font-weight:600;
+  letter-spacing:.06em; color:var(--muted)}
+.cap-pill b{color:var(--money); font-size:1.6em; margin-left:6px;
+  text-shadow:0 0 12px rgba(39,224,122,.35)}      /* bankroll reads as money */
 .controls{display:flex; gap:8px; align-items:center}
-button{background:var(--panel2); color:var(--ink); border:1px solid var(--line);
-  padding:9px 15px; border-radius:8px; cursor:pointer; font-weight:700}
-button:hover{filter:brightness(1.25)}
-button.primary{background:linear-gradient(180deg,#5cb6ff,var(--you)); color:#04203b; border-color:transparent}
+button{background:var(--panel2); color:var(--ink); border:1px solid var(--line2);
+  padding:9px 15px; border-radius:6px; cursor:pointer; font-weight:700;
+  font-family:var(--display); letter-spacing:.04em; text-transform:uppercase;
+  transition:filter .12s, transform .08s}
+button:hover{filter:brightness(1.15)}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--accent); color:var(--accentink); border-color:transparent}
+button.primary:hover{background:var(--accent2)}
 button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 
-.shop{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
-/* 2K-style player card */
-.card{position:relative; background:linear-gradient(180deg,var(--panel2),var(--panel));
-  border:1px solid var(--line); border-top:3px solid var(--line); border-radius:11px;
+.shop{display:grid; grid-template-columns:repeat(5,1fr); gap:11px}
+/* 2K MyTeam-style player card */
+.card{position:relative; background:var(--panel);
+  border:1px solid var(--line); border-top:3px solid var(--line); border-radius:var(--r);
   padding:10px; cursor:pointer; touch-action:none;
   transition:transform .12s, box-shadow .12s, border-color .12s}
-/* freeze toggle (SAP/Battlegrounds-style hold) */
-.card .freeze{flex:0 0 auto; width:22px; height:22px; padding:0; border-radius:6px;
-  background:var(--panel); border:1px solid var(--line); color:var(--muted);
-  font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center}
-.card .freeze:hover{color:#9fd8ff; border-color:#9fd8ff}
-.card.frozen{border-color:#7fb8ff; box-shadow:0 0 0 1px #7fb8ff, 0 0 14px rgba(127,184,255,.35)}
-.card.frozen::after{content:""; position:absolute; inset:0; border-radius:11px; pointer-events:none;
-  background:linear-gradient(135deg,rgba(127,184,255,.16),rgba(127,184,255,0) 60%)}
-.card.frozen .freeze{color:#0b0e13; background:#9fd8ff; border-color:#9fd8ff}
-.card:hover{transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.45); border-color:var(--you)}
-.card.t1{border-top-color:var(--t1)} .card.t2{border-top-color:var(--t2)}
-.card.t3{border-top-color:var(--t3)} .card.t4{border-top-color:var(--t4);
-  box-shadow:0 0 0 1px rgba(192,139,255,.25)}
-.card.t5{border-top-color:var(--t5); box-shadow:0 0 0 1px rgba(255,111,174,.3)}
-.card.t6{border-top-color:var(--t6); box-shadow:0 0 0 1px rgba(111,227,255,.4)}
+.card .freeze{flex:0 0 auto; padding:2px 7px; border-radius:4px;
+  background:var(--panel); border:1px solid var(--line2); color:var(--muted);
+  font-family:var(--display); font-size:.62em; font-weight:600; letter-spacing:.06em;
+  text-transform:uppercase; line-height:1.6}
+.card .freeze:hover{color:var(--you); border-color:var(--you)}
+.card.frozen{border-color:var(--you); box-shadow:0 0 0 1px var(--you)}
+.card.frozen .freeze{color:#fff; background:var(--you); border-color:var(--you)}
+.card:hover{transform:translateY(-3px); box-shadow:var(--shadow); border-color:var(--line2)}
+/* 2K MyTeam gem rarity: colored top frame + a tier-matched glow */
+.card{border-top-width:4px}
+.card.t1{border-top-color:var(--t1); box-shadow:0 -3px 16px -8px var(--t1glow)}
+.card.t2{border-top-color:var(--t2); box-shadow:0 -3px 16px -8px var(--t2glow)}
+.card.t3{border-top-color:var(--t3); box-shadow:0 -3px 16px -8px var(--t3glow)}
+.card.t4{border-top-color:var(--t4); box-shadow:0 -3px 16px -8px var(--t4glow)}
+.card.t5{border-top-color:var(--t5); box-shadow:0 -3px 18px -7px var(--t5glow)}
+.card.t6{border-top-color:var(--t6); box-shadow:0 -4px 22px -6px var(--t6glow)}
 .card.sold{opacity:.3; pointer-events:none; display:flex; align-items:center; justify-content:center;
   min-height:120px; font-style:italic; color:var(--muted)}
 .card .chead{display:flex; align-items:center; gap:8px; margin-bottom:8px}
-.card .cmeta{flex:1; min-width:0; line-height:1.2}
-.card .cmeta .nm{font-size:.9em; font-weight:800; display:block; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis}
+.card .cmeta{flex:1; min-width:0; line-height:1.25}
+.card .cmeta .nm{font-family:var(--display); font-size:.96em; font-weight:600; display:block;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .card .cmeta .sub{font-size:.68em; color:var(--muted)}
-.tier{font-size:.74em; font-weight:900; padding:2px 7px; border-radius:5px; color:#0b0e13;
-  letter-spacing:.04em; box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tier{font-family:var(--display); font-size:.74em; font-weight:700; padding:2px 7px;
+  border-radius:4px; color:#10141b; letter-spacing:.04em}
 .slot .pos .tier{float:right; font-size:.92em}
 .tier.t1{background:var(--t1)} .tier.t2{background:var(--t2)}
 .tier.t3{background:var(--t3)} .tier.t4{background:var(--t4)}
-.tier.t5{background:var(--t5)} .tier.t6{background:var(--t6); box-shadow:0 0 8px rgba(111,227,255,.7)}
-.card .cfoot{display:flex; justify-content:space-between; align-items:center; gap:6px;
-  margin-top:8px}
+.tier.t5{background:var(--t5)} .tier.t6{background:var(--t6)}
+.card .cfoot{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:8px}
 .card .abil{font-size:.7em; font-weight:800; color:var(--accent); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis}
-.card .cost{font-size:1.15em; font-weight:900; color:var(--accent); flex:0 0 auto;
-  background:rgba(255,207,77,.12); border:1px solid rgba(255,207,77,.35);
-  border-radius:6px; padding:2px 8px}
-.card .zone{font-size:.64em; color:var(--muted); margin-top:4px}
+.card .cost{font-family:var(--display); font-size:1.05em; font-weight:700; color:var(--accent);
+  flex:0 0 auto; background:rgba(232,181,74,.12); border:1px solid rgba(232,181,74,.32);
+  border-radius:6px; padding:2px 9px}
 
-/* ---------- overlay --------------------------------------------------- */
-.overlay{position:fixed; inset:0; background:rgba(0,0,0,.74); display:flex;
+/* ---------- overlays + modals ----------------------------------------- */
+.overlay{position:fixed; inset:0; background:rgba(8,10,7,.8); display:flex;
   align-items:center; justify-content:center; z-index:20}
-.modal{background:var(--panel); padding:30px; border-radius:14px; text-align:center;
-  max-width:400px; border:1px solid var(--line); box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.modal h2{margin-bottom:10px}
+.modal{background:var(--panel); padding:30px; border-radius:10px; text-align:center;
+  max-width:400px; border:1px solid var(--line2); border-top:3px solid var(--accent);
+  box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.modal h2{margin-bottom:10px; font-family:var(--display); letter-spacing:.04em; text-transform:uppercase}
 .modal.wide{max-width:680px; width:92%}
 .hidden{display:none}
 
-/* player card (tap a court token) */
+/* player card (tap a token) */
 .pcard{max-width:340px; width:90%; text-align:left; border-top:4px solid var(--line)}
 .pcard.t1{border-top-color:var(--t1)} .pcard.t2{border-top-color:var(--t2)}
 .pcard.t3{border-top-color:var(--t3)} .pcard.t4{border-top-color:var(--t4)}
@@ -386,70 +498,68 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 
 /* ---------- Finals center-court logo ---------------------------------- */
 .finals-logo{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  z-index:1; pointer-events:none; opacity:.55}
-.finals-logo .ring{width:132px; height:132px; border-radius:50%; border:3px solid var(--accent);
+  z-index:1; pointer-events:none; opacity:.6}
+.finals-logo .ring{width:146px; height:146px; border-radius:50%; border:2px solid rgba(255,255,255,.6);
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
-  background:radial-gradient(circle,rgba(255,207,77,.16),rgba(255,207,77,0) 70%);
-  box-shadow:0 0 26px rgba(255,207,77,.35), inset 0 0 18px rgba(255,207,77,.2)}
-.finals-logo .trophy{font-size:36px; filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
-.finals-logo .ftxt{font-weight:900; letter-spacing:.28em; font-size:13px; color:#fff;
-  text-shadow:0 1px 3px rgba(0,0,0,.75)}
+  box-shadow:0 0 0 8px rgba(255,255,255,.1)}
+.finals-logo .trophy{display:none}
+.finals-logo .ftxt{font-family:var(--display); font-weight:700; letter-spacing:.32em;
+  font-size:16px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.85)}
+.finals-logo .ftxt::after{content:"CHAMPIONSHIP"; display:block; font-size:.45em; letter-spacing:.22em;
+  opacity:.8; margin-top:3px}
 
 /* ---------- post-game TEAM aggregate ---------------------------------- */
 #pg-sub{margin:2px 0 14px}
 .pg-tables{margin:6px 0 16px}
 .agg{width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums}
-.agg th{font-size:.72em; letter-spacing:.14em; font-weight:800; padding:0 0 8px}
+.agg th{font-family:var(--display); font-size:.76em; letter-spacing:.12em; font-weight:600;
+  padding:0 0 8px; text-transform:uppercase}
 .agg th.you{color:var(--you); text-align:left} .agg th.opp{color:var(--opp); text-align:right}
 .agg td{padding:7px 6px; border-top:1px solid var(--line)}
 .agg td.lbl{text-align:center; font-size:.74em; color:var(--muted); letter-spacing:.06em;
   text-transform:uppercase; width:40%}
-.agg td.yv{text-align:left; font-size:1.45em; font-weight:800; color:#cfe6ff}
-.agg td.ov{text-align:right; font-size:1.45em; font-weight:800; color:#ffd2cc}
-.agg td.yv.lead{color:var(--you); text-shadow:0 0 12px rgba(61,165,255,.5)}
-.agg td.ov.lead{color:var(--opp); text-shadow:0 0 12px rgba(255,107,94,.5)}
+.agg td.yv{text-align:left; font-family:var(--display); font-size:1.4em; font-weight:700; color:#cfe6ff}
+.agg td.ov{text-align:right; font-family:var(--display); font-size:1.4em; font-weight:700; color:#ffd2cc}
+.agg td.yv.lead{color:var(--you)} .agg td.ov.lead{color:var(--opp)}
 
-/* ---------- mobile / portrait — phases keep each screen minimal ---------
-   With GM/Coach/Fan splitting the content, mobile already shows one scene at a
-   time. This just tightens sizes and tunes the GM shop into a swipe row. */
+/* ---------- mobile / portrait ----------------------------------------- */
 @media(max-width:640px){
-  /* sticky compact scoreboard */
   header{position:sticky; top:0; z-index:15; grid-template-columns:1fr;
-    gap:3px; padding:7px 12px 8px; text-align:center;
-    background:linear-gradient(180deg,#11161f,#0b0e13)}
-  h1{font-size:.96em}
-  .goal{display:none}                       /* the record + clock carry the state */
-  .phase-nav{margin-top:4px}
-  .pstep small{display:none}                /* number + name only on phones */
-  .scoreboard{gap:18px}
-  .scoreboard .team{min-width:54px}
-  .scoreboard .team #you-score,.scoreboard .team #opp-score{font-size:1.75em}
-  .scoreboard .mid{min-width:0}
-  .clock{font-size:1.2em; margin-top:1px}
-  .poss-left{margin-top:1px}
+    gap:4px; padding:7px 12px 8px; text-align:center;
+    background:linear-gradient(180deg,#161c27,#0f131b)}
+  h1{font-size:.94em; justify-content:center}
+  .goal{display:none}
+  .phase-nav{margin-top:5px}
+  .pstep small{display:none}
+  .scoreboard{gap:0}
+  .scoreboard .team{min-width:78px; padding:5px 11px}
+  .scoreboard .team #you-score,.scoreboard .team #opp-score{font-size:1.7em}
+  .scoreboard .mid{min-width:110px}
+  .clock{font-size:1.15em; margin-top:1px}
 
-  main{padding:10px; gap:12px}
-  .court{width:80vw; max-width:340px}       /* coach/fan: court is the whole scene */
-  .token{width:42px}
-  .token .nm{font-size:11px}
+  main{padding:11px; gap:13px}
+  /* one column on phones; in the game the OPPONENT sits UNDER the court so the
+     top scoreboard stays visible, then your team, then the play-by-play. */
+  body.view-gm main{grid-template-columns:1fr; grid-template-areas:"team" "shop"}
+  body.view-coach main{grid-template-columns:1fr; grid-template-areas:"court"}
+  body.view-fan main{grid-template-columns:1fr;
+    grid-template-areas:"court" "team" "opp" "feed"}
+  .court{width:92vw; max-width:440px}
+  /* tokens auto-scale with the court via cqw — no fixed-px overrides needed */
   .leftcol,.rightcol{width:100%}
   .feed-wrap{height:240px}
 
-  /* GM shop as a swipeable card row (cards keep full size) */
   .shop-wrap{padding:6px 0 10px}
-  .shop-head{align-items:center; gap:8px}
-  .shop{display:flex; overflow-x:auto; gap:10px; padding:2px 2px 12px;
+  .shop{display:flex; overflow-x:auto; gap:11px; padding:2px 2px 12px;
     scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;
     scrollbar-width:thin; scrollbar-color:var(--accent) transparent}
   .shop::-webkit-scrollbar{height:6px}
   .shop::-webkit-scrollbar-thumb{background:var(--accent); border-radius:3px}
-  .shop .card{flex:0 0 60%; scroll-snap-align:center; touch-action:pan-x}
-  .shop .card.sold{flex:0 0 60%; min-height:150px}
+  .shop .card{flex:0 0 62%; scroll-snap-align:center; touch-action:pan-x}
+  .shop .card.sold{flex:0 0 62%; min-height:150px}
 
-  /* the phase bar buttons fill the width on phones */
   .pgroup #reroll,.pgroup #newgame,.pgroup #to-gm{padding:11px 10px; font-size:.84em}
   .pgroup #to-coach,.pgroup #play{padding:12px 8px}
-
   .pg-tables .agg td.yv,.pg-tables .agg td.ov{font-size:1.2em}
   .modal{padding:20px}
 }

@@ -148,8 +148,8 @@ def buy():
         else:
             shop[idx] = None
             need = sim.xp_to_next(occupant)
-            msg = (f"{occupant['name']} absorbs {player['name']} "
-                   f"— {need} more to L{occupant['level'] + 1}.")
+            msg = (f"{occupant['name']} absorbs {player['name']}. "
+                   f"{need} more to L{occupant['level'] + 1}.")
         return jsonify({"state": state, "log": [msg]})
 
     if player["cost"] > state["cap"]:
@@ -202,9 +202,9 @@ def move():
                             "log": [f"{occ['name']} is already max level (L{sim.MAX_LEVEL})."]})
         _, leveled = sim.level_up(occ, src)
         lineup.remove(src)
-        msg = (f"Combined {src['name']} into {occ['name']} — leveled up to L{occ['level']}!"
+        msg = (f"Combined {src['name']} into {occ['name']}. Leveled up to L{occ['level']}!"
                if leveled else
-               f"{occ['name']} absorbs {src['name']} — {sim.xp_to_next(occ)} more to L{occ['level'] + 1}.")
+               f"{occ['name']} absorbs {src['name']}. {sim.xp_to_next(occ)} more to L{occ['level'] + 1}.")
     elif src.get("slot") in occ["positions"]:           # swap two players' slots
         occ["slot"], src["slot"] = src.get("slot"), slot
         msg = f"Swapped {src['name']} and {occ['name']}."
@@ -243,7 +243,7 @@ def play():
     clash = sim.overlapping_ids(state["lineup"])
     if clash:
         return jsonify({"state": state, "error": "overlap", "conflicts": clash,
-                        "log": ["Players are stacked — separate them before tip-off."]})
+                        "log": ["Players are stacked. Separate them before tip-off."]})
     played_round = state["round"]
     is_finals = bool(state.get("finals"))
     if is_finals:
@@ -258,6 +258,10 @@ def play():
     # save this lineup (with positions) so it can be a future opponent (not the Finals)
     if not is_finals:
         save_team(played_round, state["lineup"])
+
+    # one more game logged together — tenure drives the Mentor ability
+    for p in state["lineup"]:
+        p["tenure"] = p.get("tenure", 0) + 1
 
     games_before = state.get("games", state["wins"] + state["losses"])
     before = set(sim.unlocked_tiers(games_before))

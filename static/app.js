@@ -3,8 +3,13 @@ const body = document.body;
 const LINEUP_SIZE = +body.dataset.lineupSize;
 const WINS_GOAL = +body.dataset.wins || 12;     // wins to clinch the Finals
 const LOSS_LIMIT = +body.dataset.losses || 4;   // losses that eliminate you
-const STEP_MS = 1150;          // playback pace (higher = slower)
-const PASS_PAUSE = 430;        // beat held after a pass (shorter = snappier ball movement)
+// Playback pacing — kept snappy so the game reads as live action, not a slideshow.
+const STEP_MS = 800;           // base beat (was 1150 — far too slow)
+const PASS_PAUSE =400;        // beat held after a pass
+const MOVE_MS = 300;           // off-ball drift beat
+const SHOT_FLIGHT = 400;       // ball in the air on a shot
+const HIT_STOP = 200;          // micro-freeze ON a make (juice: lets the bucket land)
+const SCORE_HOLD = 400;        // savor the bucket after it drops
 const MIN_SEP = 11;            // must match sim.MIN_SEP (overlap threshold)
 
 const POS_LABELS = {1: "PG", 2: "SG", 3: "SF", 4: "PF", 5: "C"};
@@ -14,7 +19,7 @@ const MAX_LEVEL = 3;
 const XP_FOR_LEVEL = {2: 2, 3: 5};        // copies absorbed to reach each level (SAP)
 const XP_START = {1: 0, 2: 2, 3: 5};      // xp at the start of each level
 const CHEM = JSON.parse(body.dataset.chem || "[]");   // archetype duos/trios
-const GEM = {1: "Bronze", 2: "Emerald", 3: "Sapphire", 4: "Amethyst", 5: "Ruby", 6: "Diamond"};
+const GEM = {1: "Rookie", 2: "Role Player", 3: "Starter", 4: "All-Star", 5: "All-League", 6: "HOF"};
 
 // which chemistry combos a team currently fields (mirrors sim._match_combo)
 function computeChem(team) {
@@ -34,7 +39,7 @@ function computeChem(team) {
 function chemHTML(team) {
   const act = computeChem(team);
   if (!act.length)
-    return `<div class="chem-empty">No synergy yet — pair archetypes for +1 all stats.</div>`;
+    return `<div class="chem-empty">No synergy yet. Pair archetypes for +1 to all stats.</div>`;
   return act.map((c) =>
     `<div class="chem ${c.kind}" title="${c.desc}  (+1 all stats to members)">`
     + `<span class="ck">${c.kind === "trio" ? "TRIO" : "DUO"}</span>`
@@ -66,13 +71,13 @@ function buildChemMap(...teams) {
   chemMap = {};
   for (const t of teams) Object.assign(chemMap, chemMemberMap(t));
 }
-// small ◆ duo / ▲ trio badges for a player id
+// small D (duo) / T (trio) chemistry badges for a player id
 function chemMark(id) {
   const m = chemMap[id];
   if (!m) return "";
   const tip = m.names.join(" · ");
-  return (m.duo ? `<span class="cmark duo" title="${tip}">◆</span>` : "")
-    + (m.trio ? `<span class="cmark trio" title="${tip}">▲</span>` : "");
+  return (m.duo ? `<span class="cmark duo" title="${tip}">D</span>` : "")
+    + (m.trio ? `<span class="cmark trio" title="${tip}">T</span>` : "");
 }
 
 // clear level badge for the team panel ("L2", gold pill, progress in the tooltip)
@@ -84,7 +89,7 @@ function levelBadge(p) {
     tip += " (max)";
   } else {
     const need = XP_FOR_LEVEL[lvl + 1] - (p.xp || 0);
-    tip += ` — ${need} more cop${need === 1 ? "y" : "ies"} to L${lvl + 1}`;
+    tip += `: ${need} more cop${need === 1 ? "y" : "ies"} to L${lvl + 1}`;
   }
   return `<span class="lvl-badge${max ? " max" : ""}" title="${tip}">L${lvl}</span>`;
 }
@@ -99,7 +104,7 @@ function levelBar(p) {
   const start = XP_START[lvl], need = XP_FOR_LEVEL[lvl + 1];
   const pct = Math.max(0, Math.min(100, ((p.xp || 0) - start) / (need - start) * 100));
   const left = need - (p.xp || 0);
-  return `<div class="lvlbar" title="L${lvl} — ${left} more to L${lvl + 1}">`
+  return `<div class="lvlbar" title="L${lvl}: ${left} more to L${lvl + 1}">`
     + `<i style="width:${pct}%"></i><span class="lp">L${lvl}</span></div>`;
 }
 
@@ -137,9 +142,9 @@ function makeToken(player, x, y, mine, draggable) {
   el.innerHTML =
     `<div class="disc">${posLabel}<span class="lvl">${player.level}</span></div>
      <div class="nm">${courtName}${chemMark(player.id)}</div>`;
-  el.title = `${player.name} — ${player.archetype} (${posLabel})\n`
-    + `SHT ${player.sht}  DEF ${player.dfn}  PLM ${player.plm}  ATH ${player.ath}`
-    + (player.ability_name ? `\n✦ ${player.ability_name}` : "");
+  el.title = `${player.name} · ${player.archetype} (${posLabel})\n`
+    + `SHT ${player.sht_disp ?? player.sht}  DEF ${player.dfn}  PLM ${player.plm}  ATH ${player.ath}`
+    + (player.ability_name ? `\nAbility: ${player.ability_name}` : "");
   if (draggable) enableDrag(el, player);
   return el;
 }
@@ -173,7 +178,7 @@ function validate() {
     el.classList.toggle("conflict", conflicts.has(el.dataset.id));
   });
   const sn = $("spacing-note");
-  if (sn) sn.textContent = conflicts.size ? "⚠ players are stacked" : "";
+  if (sn) sn.textContent = conflicts.size ? "Players are stacked" : "";
   updatePlayButton();
 }
 
@@ -193,6 +198,78 @@ function spawnPlaybackTokens() {
 }
 
 // glide existing tokens to a possession's positions (the dribble)
+// ---------------------------------------------------------------- game feel / juice
+// Procedural sound (Web Audio, zero assets — respects the no-genAI / no-license rule).
+// Lazily created on the first user gesture (Tip Off); wrapped so it never throws
+// into gameplay.
+const SFX = (() => {
+  let ctx = null, master = null, on = true;
+  function init() {
+    if (ctx) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = 0.22; master.connect(ctx.destination);
+    } catch (e) { ctx = null; }
+  }
+  function live() { if (!ctx) init(); if (ctx && ctx.state === "suspended") ctx.resume(); return on && ctx; }
+  function tone(freq, dur, type, gain, slideTo) {
+    if (!live()) return;
+    const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain || 0.3, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(dur, gain, lp, hp) {
+    if (!live()) return;
+    const t = ctx.currentTime, n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const g = ctx.createGain(); g.gain.setValueAtTime(gain || 0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = src;
+    if (lp) { const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; node.connect(f); node = f; }
+    if (hp) { const f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp; node.connect(f); node = f; }
+    node.connect(g); g.connect(master); src.start(t); src.stop(t + dur);
+  }
+  return {
+    init,
+    toggle() { on = !on; return on; },
+    make(shot) {                                   // swish through the net + crowd pop
+      noise(0.16, 0.22, 6500, 1800);
+      const big = shot === "three";
+      setTimeout(() => noise(big ? 0.5 : 0.3, big ? 0.3 : 0.18, 1100, 180), 55);
+      if (big) tone(523, 0.16, "sine", 0.16, 784);
+    },
+    miss() { noise(0.05, 0.16, 3200); tone(170, 0.07, "square", 0.1); },  // rim clank
+    steal() { tone(1180, 0.09, "sine", 0.16, 1680); },                    // whistle blip
+    buzzer() { tone(146, 0.65, "square", 0.22); },                        // end-of-game horn
+  };
+})();
+
+// brief court "screen shake" — bigger on a three (per game-feel research)
+function shake(level) {
+  const c = $("court"); if (!c) return;
+  const cls = level === "lg" ? "shake-lg" : "shake-sm";
+  c.classList.remove(cls); void c.offsetWidth; c.classList.add(cls);
+  setTimeout(() => c.classList.remove(cls), level === "lg" ? 420 : 280);
+}
+// pop the scoreboard number when it changes
+function scorePop(el) {
+  if (!el) return; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+  setTimeout(() => el.classList.remove("pop"), 430);
+}
+// floating "+2" / "+3" that rises off the rim on a make
+function floatPoints(pts, x, y) {
+  const court = $("court"); if (!court || !pts) return;
+  const d = document.createElement("div");
+  d.className = "pts-pop" + (pts >= 3 ? " three" : "");
+  d.textContent = "+" + pts; d.style.left = x + "%"; d.style.top = y + "%";
+  court.appendChild(d); setTimeout(() => d.remove(), 850);
+}
+
 function moveTokens(layout) {
   [...layout.offense, ...layout.defense].forEach((e) => {
     const el = document.querySelector(`#court .token[data-id="${e.id}"]`);
@@ -393,13 +470,14 @@ function attachPointerDrag(el, cfg) {
 // ---------------------------------------------------------------------------
 let viewPhase = "gm";
 const PHASE_ORDER = {gm: 0, coach: 1, fan: 2};
-const PHASE_LABEL = {gm: "GM — build your roster",
-                     coach: "Coach — set your lineup", fan: "Fan — watch the game"};
+const PHASE_LABEL = {gm: "Build your roster",
+                     coach: "Set your lineup", fan: "Watch the game"};
 
 function setView(p) {
   viewPhase = p;
   document.body.classList.remove("view-gm", "view-coach", "view-fan");
   document.body.classList.add("view-" + p);
+  if (p !== "fan") document.body.removeAttribute("data-possession");
   document.querySelectorAll("#phase-nav .pstep").forEach((el) => {
     el.classList.toggle("active", el.dataset.phase === p);
     el.classList.toggle("done", PHASE_ORDER[el.dataset.phase] < PHASE_ORDER[p]);
@@ -410,11 +488,11 @@ function setView(p) {
 }
 
 function render() {
-  $("record").textContent = `${state.wins}W – ${state.losses}L`;
+  $("record").textContent = `${state.wins}W ${state.losses}L`;
   $("cap").textContent = state.cap;
-  $("round-label").textContent = state.finals ? "🏆 FINALS" : `Round ${state.round}`;
+  $("round-label").textContent = state.finals ? "FINALS" : `Round ${state.round}`;
   $("phase-label").textContent = state.phase === "over" ? "Run over"
-    : state.finals ? "FINALS — build your champion" : "Build phase";
+    : state.finals ? "Build your champion" : "Build phase";
   showFinalsLogo(!!state.finals);
   showClock(false);               // clock only runs during a game
   buildChemMap(state.lineup);     // duo/trio membership for indicators
@@ -442,15 +520,26 @@ function renderUnlockNote() {
 const usedSlots = () => new Set(state.lineup.map((p) => p.slot));
 
 // colour-coded attributes (OFF red · DEF blue · PAS green · STL gold)
+// 2K-style overall rating (40-99) from the four shown ratings
+function ovr(p) {
+  const sum = (p.sht_disp ?? p.sht) + p.dfn + p.plm + p.ath;
+  return Math.max(40, Math.min(99, Math.round(48 + sum * 0.98)));
+}
+function ovrHTML(p) {
+  const v = ovr(p);
+  const cls = v >= 90 ? "elite" : v >= 80 ? "great" : v >= 70 ? "good" : "base";
+  return `<span class="ovr ${cls}"><b>${v}</b><small>OVR</small></span>`;
+}
 function statHTML(p) {
-  return `<span class="st sht">SHT <b>${p.sht}</b></span>`
+  return `<span class="st sht">SHT <b>${p.sht_disp ?? p.sht}</b></span>`
     + `<span class="st def">DEF <b>${p.dfn}</b></span>`
     + `<span class="st plm">PLM <b>${p.plm}</b></span>`
     + `<span class="st ath">ATH <b>${p.ath}</b></span>`;
 }
 function totalsHTML(team) {
   const s = (k) => team.reduce((a, p) => a + p[k], 0);
-  return `<span class="st sht">SHT <b>${s("sht")}</b></span>`
+  const sShot = team.reduce((a, p) => a + (p.sht_disp ?? p.sht), 0);
+  return `<span class="st sht">SHT <b>${sShot}</b></span>`
     + `<span class="st def">DEF <b>${s("dfn")}</b></span>`
     + `<span class="st plm">PLM <b>${s("plm")}</b></span>`
     + `<span class="st ath">ATH <b>${s("ath")}</b></span>`;
@@ -509,10 +598,11 @@ function renderPosbar() {
       + (p ? ` <span class="tier t${p.tier || 1}" title="Tier ${p.tier || 1} (${GEM[p.tier]})">T${p.tier || 1}</span>` : "")
       + `</div>` + (p
       ? `<div class="filled">
+           ${ovrHTML(p)}
            <div class="who"><b>${p.name} ${chemMark(p.id)}</b>
-             <span class="arch">${levelBadge(p)} ${p.archetype}</span>
-             <span class="abil">✦ ${p.ability_name || "—"}</span></div>
-           <button class="x" title="release">✕</button></div>
+             <span class="arch">${levelBadge(p)} <b class="arch-name">${p.archetype}</b></span>
+             <span class="abil">${p.ability_name || "No ability"}</span></div>
+           <button class="x" title="release player">Cut</button></div>
          <div class="statline">${statHTML(p)}</div>`
       : `<div class="empty">drop a ${POS_LABELS[s]} here</div>`);
     if (p) {
@@ -546,7 +636,7 @@ function renderOppPanel(opponent, source) {
     `<div class="orow">
        <div class="oinfo">
          <b>${POS_LABELS[p.slot]} · ${p.name} ${chemMark(p.id)}</b>
-         <span class="osub">${p.archetype}${p.level > 1 ? " ·L" + p.level : ""} · ✦ ${p.ability_name || "—"}</span>
+         <span class="osub"><b class="arch-name">${p.archetype}</b>${p.level > 1 ? " ·L" + p.level : ""} · ${p.ability_name || "No ability"}</span>
        </div>
        <div class="statline">${statHTML(p)}</div>
      </div>`).join("");
@@ -569,23 +659,21 @@ function renderShop() {
   shop.innerHTML = "";
   state.shop.forEach((p, i) => {
     const card = document.createElement("div");
-    if (!p) { card.className = "card sold"; card.innerHTML = "<i>signed ✓</i>"; }
+    if (!p) { card.className = "card sold"; card.innerHTML = "<i>Signed</i>"; }
     else {
       card.className = "card t" + (p.tier || 1) + (p.frozen ? " frozen" : "");
       const pos = p.positions.map((s) => POS_LABELS[s]).join("/");
-      const zone = {distribute: "up top", pull_up: "midrange", cut: "the rim",
-        roll: "the rim", screen: "the rim", spot_up: "the arc"}[p.behavior];
       card.innerHTML =
         `<div class="chead">
+           ${ovrHTML(p)}
            <div class="cmeta"><b class="nm">${p.name}</b>
-             <span class="sub">${pos} · ${p.archetype}</span></div>
-           <button class="freeze" title="Freeze — hold through reroll &amp; the next round">❄</button>
+             <span class="sub">${pos} · <b class="arch-name">${p.archetype}</b></span></div>
+           <button class="freeze" title="Hold through reroll and the next round">Hold</button>
            <span class="tier t${p.tier || 1}" title="Tier ${p.tier || 1} (${GEM[p.tier]})">T${p.tier || 1}</span>
          </div>
          <div class="statline">${statHTML(p)}</div>
-         <div class="cfoot"><span class="abil">✦ ${p.ability_name || "—"}</span>
-           <span class="cost" title="cap cost">$${p.cost}</span></div>
-         <div class="zone">best at ${zone}</div>`;
+         <div class="cfoot"><span class="abil">${p.ability_name || "No ability"}</span>
+           <span class="cost" title="cap cost">$${p.cost}</span></div>`;
       attachPointerDrag(card, {                  // swipe to scroll · drag up to a slot · tap to sign
         label: p.name,
         vLock: true,                             // horizontal swipe scrolls the shop row
@@ -696,24 +784,24 @@ async function animate(result) {
   spawnPlaybackTokens();                      // all ten on court at placed spots
   showFinalsLogo(!!result.is_finals);         // championship floor logo
   if (result.is_finals)
-    logLines(["🏆 THE FINALS — winner takes the title."], "head");
+    logLines(["THE FINALS. Winner takes the title."], "head");
   if (result.chem_you && result.chem_you.length)
     logLines([`Your chemistry: ${result.chem_you.map((c) => c.name).join(", ")}`], "you-ev");
   if (result.chem_opp && result.chem_opp.length)
     logLines([`Opponent chemistry: ${result.chem_opp.map((c) => c.name).join(", ")}`], "opp-ev");
-  await sleep(500);
+  await sleep(320);
 
   const playPossession = async (poss, who, addScore) => {
     const holder = poss.handler;             // the initiator starts with the ball
     let cur = posLookup(poss.layout);
     moveTokens(poss.layout);                 // drift into the play
     ballTo(holder ? cur[holder] : null, {instant: true});
-    await sleep(500);
+    await sleep(240);
     for (const ev of poss.events) {
       if (ev.layout) {                       // players keep MOVING during the play
         cur = posLookup(ev.layout);
         moveTokens(ev.layout);
-        await sleep(360);
+        await sleep(MOVE_MS);
       }
       if (ev.kind === "pass") {
         logLines([ev.text], who + " pass");
@@ -724,32 +812,42 @@ async function animate(result) {
       } else if (ev.kind === "steal") {      // intercepted IN THE LANE, before the target
         logLines([ev.text], who + " steal");
         if (ev.actor) { flash(ev.actor, false); ballTo(cur[ev.actor]); }
-        await sleep(STEP_MS);
+        SFX.steal(); shake("sm");            // turnover snap
+        await sleep(340);
       } else if (ev.kind === "rebound") {    // crashed the offensive glass
         logLines([ev.text], who + " reb");
         if (ev.actor) { flash(ev.actor, false); ballTo(cur[ev.actor]); }
-        await sleep(STEP_MS - 250);
+        await sleep(300);
       } else {                               // made / miss — shoot from the spot
         if (ev.actor) ballTo(cur[ev.actor]);
-        await sleep(180);
+        await sleep(110);
         if (ev.actor) trailLine(cur[ev.actor], {x: 50, y: 7}, "shot");
         ballTo({x: 50, y: 7}, {shot: true});
-        await sleep(340);
+        await sleep(SHOT_FLIGHT);
         logLines([ev.text], who + " " + ev.kind);
         if (ev.actor) flash(ev.actor, ev.kind === "made", ev.shot);
         if (ev.target) flash(ev.target, false);
-        addScore(ev.points);
-        if (ev.kind === "made") { ballTo({x: 50, y: 7}, {made: true}); flashHoop(); }
-        else ballTo({x: 50 + (Math.random() * 16 - 8), y: 14});   // caroms off the rim
-        await sleep(STEP_MS);
+        if (ev.kind === "made") {
+          ballTo({x: 50, y: 7}, {made: true}); flashHoop();
+          await sleep(HIT_STOP);             // hit-stop: freeze a beat ON the bucket
+          addScore(ev.points);               // animated scoreboard pop
+          floatPoints(ev.points, 50, 13);    // "+2" / "+3" rises off the rim
+          shake(ev.shot === "three" ? "lg" : "sm");
+          SFX.make(ev.shot);
+          await sleep(SCORE_HOLD);
+        } else {
+          ballTo({x: 50 + (Math.random() * 16 - 8), y: 14});   // caroms off the rim
+          SFX.miss();
+          await sleep(280);
+        }
       }
     }
     clearTrails();
   };
 
   // ALTERNATING possessions; the higher-offense team gets the ball first
-  const addYou = (p) => { you += p; $("you-score").textContent = you; };
-  const addOpp = (p) => { opp += p; $("opp-score").textContent = opp; };
+  const addYou = (p) => { you += p; const e = $("you-score"); e.textContent = you; scorePop(e); };
+  const addOpp = (p) => { opp += p; const e = $("opp-score"); e.textContent = opp; scorePop(e); };
   const yp = result.you_possessions, op = result.opp_possessions;
   const youSide = {poss: yp, who: "you-ev", add: addYou, label: "YOUR BALL", phase: "Your ball", key: "you"};
   const oppSide = {poss: op, who: "opp-ev", add: addOpp, label: "OPPONENT BALL", phase: "Opponent ball", key: "opp"};
@@ -769,6 +867,7 @@ async function animate(result) {
   for (let i = 0; i < rounds; i++) {
     for (const side of order) {
       if (i < side.poss.length) {
+        document.body.dataset.possession = side.key;   // glow the team on offense
         $("phase-label").textContent = `${side.phase} (${i + 1})`;
         logLines([`${side.label} · poss ${i + 1}`], "head");
         await playPossession(side.poss[i], side.who, side.add);
@@ -778,17 +877,19 @@ async function animate(result) {
       }
     }
   }
+  document.body.removeAttribute("data-possession");    // game over — clear the glow
+  SFX.buzzer();                                        // final horn
 
-  if (result.ot) logLines(["🏀 OVERTIME — sudden death, first bucket wins!"], "head");
+  if (result.ot) logLines(["OVERTIME. Sudden death, first bucket wins."], "head");
   const verdict = {win: "WIN", loss: "LOSS", push: "PUSH (no record change)"}[result.verdict];
-  logLines([`FINAL: You ${you} – ${opp} Opponent  →  ${verdict}`], "head");
+  logLines([`FINAL: You ${you}, Opponent ${opp}. ${verdict}`], "head");
   if (result.unlocked_tier) {
-    logLines([`🔓 TIER ${result.unlocked_tier} UNLOCKED — new free agents in the market!`], "head");
+    logLines([`TIER ${result.unlocked_tier} UNLOCKED. New free agents in the market.`], "head");
   }
   if (result.made_finals) {
-    logLines(["🏆 You've reached the FINALS! One title game stands between you and the ring."], "head");
+    logLines(["You've reached the FINALS. One title game stands between you and the ring."], "head");
   }
-  await sleep(1400);
+  await sleep(850);
   hideBall();
   clearTrails();
   showClock(false);
@@ -797,6 +898,7 @@ async function animate(result) {
 
 async function play() {
   if (busy || conflicts.size) return;
+  SFX.init();                              // create audio within the Tip Off gesture
   if (state.lineup.length === 0) { logLines(["Sign at least one player first."]); return; }
   const r = await api("/api/play", {state});
   if (r.error) {                          // overlap backstop — stay in Coach to fix it
@@ -838,14 +940,14 @@ function teamAgg(box) {
 
 function showPostgame(result) {
   const v = {win: "WIN", loss: "LOSS", push: "PUSH"}[result.verdict];
-  $("pg-title").textContent = (result.is_finals ? "🏆 THE FINALS — " : "FINAL — ")
-    + `You ${result.you_pts} – ${result.opp_pts} Opponent  ·  ${v}`
+  $("pg-title").textContent = (result.is_finals ? "THE FINALS  " : "FINAL  ")
+    + `You ${result.you_pts} - ${result.opp_pts} Opponent  ·  ${v}`
     + (result.ot ? "  (OT)" : "");
   $("pg-sub").textContent = result.made_finals
     ? "You clinched a Finals berth! Build your champion, then play for the title."
     : result.is_finals
       ? (result.verdict === "win" ? "Champions." : "Fell at the final hurdle.")
-      : "Team totals — watch the game, read the numbers after.";
+      : "Team totals. Watch the game, read the numbers after.";
   const y = teamAgg(result.you_box), o = teamAgg(result.opp_box);
   const row = (label, yd, od, yc, oc) =>
     `<tr><td class="yv ${yc > oc ? "lead" : ""}">${yd}</td>`
@@ -866,14 +968,14 @@ function showPostgame(result) {
 
 function showOverlay(outcome) {
   const map = {
-    champion:    ["🏆 CHAMPIONS!", " You won it all."],
+    champion:    ["CHAMPIONS", " You won it all."],
     "runner-up": ["Runner-up", " You fell in the Finals."],
     busted:      ["Eliminated", " Your championship run is over."],
   };
   const [title, extra] = map[outcome] || ["Run over", ""];
   $("overlay-title").textContent = title;
   $("overlay-body").textContent =
-    `Final record: ${state.wins}W – ${state.losses}L.` + extra;
+    `Final record: ${state.wins}W ${state.losses}L.` + extra;
   $("overlay").classList.remove("hidden");
 }
 
@@ -890,7 +992,7 @@ function showPlayerCard(p) {
      </div>
      ${levelBar(p)}
      <div class="pc-stats statline">${statHTML(p)}</div>
-     <div class="pc-abil">✦ <b>${p.ability_name || "No special ability"}</b></div>
+     <div class="pc-abil"><b>${p.ability_name || "No special ability"}</b></div>
      <button id="pc-close" class="primary">Close</button>`;
   $("playercard").classList.remove("hidden");
   $("pc-close").onclick = () => $("playercard").classList.add("hidden");
@@ -929,6 +1031,13 @@ $("reroll").onclick = async () => {
   if (busy) return;
   const r = await api("/api/reroll", {state});
   state = r.state; render(); logLines(r.log);
+};
+const soundBtn = $("sound-toggle");
+if (soundBtn) soundBtn.onclick = () => {
+  SFX.init();
+  const on = SFX.toggle();
+  soundBtn.textContent = on ? "Sound on" : "Sound off";
+  soundBtn.classList.toggle("off", !on);
 };
 
 newGame();

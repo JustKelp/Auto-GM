@@ -25,27 +25,32 @@ import uuid
 # ---------------------------------------------------------------------------
 # TUNABLE KNOBS
 # ---------------------------------------------------------------------------
-POSSESSIONS_PER_SIDE = 5
-FINALS_POSSESSIONS = 10   # the Finals runs twice as long — less variance, better team wins
+POSSESSIONS_PER_SIDE = 7
+FINALS_POSSESSIONS = 15   # the Finals runs longer — less variance, better team wins
 LINEUP_SIZE = 5
 SHOP_SIZE = 5
-STARTING_CAP = 17
-CAP_PER_ROUND = 7
-REROLL_COST = 1
+STARTING_CAP = 20
+CAP_PER_ROUND = 10
+REROLL_COST = 2
 WINS_TO_FINISH = 12       # wins that clinch a Finals berth (championship run)
 LOSSES_TO_BUST = 4        # losses that eliminate you
 
 # Court / geometry (coords are 0-100 on both axes; basket near the top baseline)
-BASKET = (50.0, 7.0)
+BASKET = (50.0, 5.0)
 LAYUP_MAX = 16.0          # distance < this = at the rim
 MID_MAX = 40.0           # distance < this = midrange, else three (matches arc)
 STANDOFF = 7.0           # how far a defender sits off his man toward the basket
 CONTEST_RANGE = 24.0     # beyond this, a defender contests nothing
-CONTEST_SCALE = 0.34     # max make-% an on-ball defender removes
+CONTEST_SCALE = 0.25     # max make-% an on-ball defender removes (lowered for scoring)
 HELP_RANGE = 20.0        # a help defender this close to the shooter chips in
-HELP_PER = 0.075         # make-% removed per nearby help defender (bunching hurts)
-HELP_CAP = 0.45          # every defender in the area piles on (high cap)
+HELP_PER = 0.045         # make-% removed per nearby help defender (bunching hurts)
+HELP_CAP = 0.30          # every defender in the area piles on
 LANE_RANGE = 8.0         # a defender this close to the pass line threatens it
+# Turnover model — lower = more video-game-like, higher scoring (tuned 2026-06-21).
+TO_BASE = 0.004          # base pass-turnover chance (tuned to ~10% of possessions)
+TO_DIST = 0.0008         # added turnover chance per unit of pass distance
+STEAL_LANE = 0.012       # steal contribution per defender sitting in the lane
+TO_CAP = 0.16            # hard ceiling on a single pass's turnover chance
 MIN_SEP = 11.0           # offensive players closer than this overlap (illegal)
 SETUP_STEP = 8.0         # drift toward your role spot as the play develops
 SHOT_STEP = 7.0          # the shooter's move to GET the shot (drive in / step out)
@@ -72,10 +77,25 @@ UNGUARDED_BONUS = 0.8    # extra pull toward a player with no man defender at al
 PRESSURE_NORM = 0.4      # pressure level at which the open bonus fully fades out
 DOUBLE_OFFSET = 4.0      # how far a doubling help defender sits off the player he traps
 
-# Shot base make-rates before ratings/fit/defense
-BASE_LAYUP = 0.64
-BASE_MIDRANGE = 0.41
-BASE_THREE = 0.35       # ~ real NBA league 3P% (your data: .343)
+# Shot base make-rates before ratings/fit/defense (raised for a higher-scoring,
+# video-game feel — 2026-06-21; shot MIX preserved via ZONE_CAL).
+BASE_LAYUP = 0.74
+BASE_MIDRANGE = 0.49
+BASE_THREE = 0.41
+
+# --- signature-ability tuning (heat_check / corner_spec / shot_blocker / mentor /
+#     streaky). These five are wired into the possession sim below. ----------------
+HEAT_STREAK = 2          # consecutive makes that trigger a Heat Check player's heat
+HEAT_BONUS = 0.10        # make-% added while hot
+HEAT_SELECT = 1.8        # how much more the offense funnels to a hot Heat Check player
+STREAK_SWING = 0.09      # Streaky: make-% nudged toward repeating his last outcome
+CORNER_BONUS = 0.09      # Corner Specialist: make-% added on a corner three
+CORNER_X = 22.0          # within this of a sideline (|x-50|>=50-CORNER_X) counts as corner
+CORNER_Y = 24.0          # ...and this close to the baseline (y<=CORNER_Y)
+BLOCK_SCALE = 0.040      # Shot Blocker: block chance per point of rim-protection rating
+BLOCK_MID = 0.45         # blocks are far rarer on midrange pull-ups than at the rim
+MENTOR_PER = 0.012       # make-% a Mentor grants a teammate per round played together
+MENTOR_CAP = 0.09        # ...capped, so tenure pays off but never dominates
 
 # ---------------------------------------------------------------------------
 # ARCHETYPES — each carries a behavior policy + a preferred shot, not just stats
@@ -148,24 +168,50 @@ ARCHETYPE_POSITIONS = {
 }
 
 # Rigid positioning: each archetype may stand in at most TWO spots.
-# [primary (most effective), secondary (farther from the basket = less effective)]
+# [primary (identity zone), secondary (midrange)]. DATA-DERIVED from 2015-16
+# SportVU tracking (NBAHeatmaps/export.py, zone-aware: primary = densest spot in
+# the archetype's dominant zone per ARCHETYPE_ZONE_MIX, secondary = midrange).
+# Replaced the earlier hand-authored anchors (2026-06-21).
 ARCHETYPE_ANCHORS = {
-    "Pass-First PG": [(50, 66), (50, 82)],
-    "Scoring PG":    [(42, 38), (52, 62)],
-    "Slashing SF":   [(44, 19), (36, 36)],
-    "Shooting SF":   [(78, 46), (84, 62)],
-    "Stretch 4":     [(22, 46), (16, 62)],
-    "Screening Big": [(56, 19), (60, 36)],
-    "Rim-Run Big":   [(50, 17), (42, 34)],
-    "Lockdown Wing": [(14, 30), (12, 50)],
-    "3&D Wing":      [(76, 50), (82, 64)],
-    "Point Forward": [(40, 30), (34, 46)],
-    "Combo Guard":   [(46, 40), (58, 58)],
-    "Sharpshooter":  [(72, 42), (80, 58)],
-    "Two-Way Forward": [(40, 22), (32, 40)],
-    "Stretch Center": [(28, 42), (22, 58)],
-    "Post Scorer":   [(58, 20), (64, 34)],
-    "Defensive Anchor": [(50, 20), (46, 34)],
+    "Pass-First PG": [(83, 51), (65, 13)],
+    "Scoring PG":    [(53, 83), (47, 35)],
+    "Slashing SF":   [(7, 15), (51, 35)],
+    "Shooting SF":   [(7, 13), (67, 15)],
+    "Stretch 4":     [(19, 53), (65, 13)],
+    "Screening Big": [(51, 11), (65, 19)],
+    "Rim-Run Big":   [(53, 13), (51, 39)],
+    "Lockdown Wing": [(93, 11), (47, 43)],
+    "3&D Wing":      [(93, 15), (63, 17)],
+    "Point Forward": [(7, 15), (67, 19)],
+    "Combo Guard":   [(77, 71), (47, 41)],
+    "Sharpshooter":  [(93, 13), (47, 37)],
+    "Two-Way Forward": [(93, 9), (65, 13)],
+    "Stretch Center": [(35, 45), (35, 19)],
+    "Post Scorer":   [(59, 11), (69, 19)],
+    "Defensive Anchor": [(51, 13), (35, 15)],
+}
+
+# Share of offensive frontcourt time spent at the rim / midrange / three, by
+# archetype. DATA-DERIVED from 2015-16 SportVU tracking (NBAHeatmaps). The lever
+# for shot-diet realism (game 3PA freq ~47% vs real ~33%); NOT yet wired into
+# shot selection — see the EV funnel TODO in _evaluate (step 8).
+ARCHETYPE_ZONE_MIX = {   # (rim, midrange, three)
+    "Pass-First PG":    (0.09, 0.252, 0.657),
+    "Scoring PG":       (0.082, 0.235, 0.683),
+    "Slashing SF":      (0.101, 0.298, 0.601),
+    "Shooting SF":      (0.09, 0.309, 0.601),
+    "Stretch 4":        (0.173, 0.297, 0.53),
+    "Screening Big":    (0.222, 0.4, 0.379),
+    "Rim-Run Big":      (0.271, 0.425, 0.304),
+    "Lockdown Wing":    (0.092, 0.244, 0.664),
+    "3&D Wing":         (0.115, 0.259, 0.627),
+    "Point Forward":    (0.144, 0.333, 0.524),
+    "Combo Guard":      (0.056, 0.277, 0.667),
+    "Sharpshooter":     (0.049, 0.24, 0.711),
+    "Two-Way Forward":  (0.14, 0.367, 0.493),
+    "Stretch Center":   (0.195, 0.395, 0.409),
+    "Post Scorer":      (0.193, 0.5, 0.306),
+    "Defensive Anchor": (0.267, 0.424, 0.309),
 }
 
 # Background tendencies by archetype (not shown as stats): how often a player
@@ -251,6 +297,22 @@ ARCHETYPE_DEF_SPLIT = {   # (on_ball, block, steal)
 }
 
 
+def display_shooting(archetype, sht):
+    """The SHOWN 'Shooting' rating, recomputed to reflect a player's REAL jump-shot
+    threat instead of the raw `sht` budget. A big with a high raw `sht` reads near-0
+    here because his archetype rarely shoots jumpers and converts them poorly; a
+    sharpshooter reads near his full rating. Derived straight from the quantities the
+    sim already uses: effective = sht * (how good his jumpers are, weighted by how
+    OFTEN he takes mid vs three per ARCHETYPE_ZONE_MIX). Rim scoring lives in ATH and
+    is shown there, so this number is specifically his perimeter/jump shooting."""
+    rim_w, mid_w, three_w = SHOT_PROFILE.get(archetype, (0.6, 0.6, 0.6))
+    _, mid_occ, three_occ = ARCHETYPE_ZONE_MIX.get(archetype, (0.33, 0.33, 0.34))
+    jump_occ = mid_occ + three_occ
+    eff = ((mid_occ * mid_w + three_occ * three_w) / jump_occ
+           if jump_occ > 0 else (mid_w + three_w) / 2)
+    return round(sht * eff)
+
+
 def _hidden_stats(archetype, sht, dfn, plm, ath):
     """Derive the back-end stats the sim reads from the four shown ratings."""
     rim_w, mid_w, three_w = SHOT_PROFILE.get(archetype, (0.6, 0.6, 0.6))
@@ -272,6 +334,8 @@ def _hidden_stats(archetype, sht, dfn, plm, ath):
         "p_vision": plm * 0.8,
         # athletic
         "quickness": quick,
+        # the SHOWN shooting rating (effective jumper threat, not the raw budget)
+        "sht_disp": display_shooting(archetype, sht),
     }
 
 
@@ -294,12 +358,12 @@ ABILITIES = {
                            desc="No accuracy penalty on deep threes."),
     "catch_shoot":    dict(name="Catch & Shoot", cat="shooting", active=True,
                            desc="Bonus accuracy on a shot taken right off a pass."),
-    "heat_check":     dict(name="Heat Check", cat="shooting", active=False,
-                           desc="After a make, his next shot gets a one-time boost."),
+    "heat_check":     dict(name="Heat Check", cat="shooting", active=True,
+                           desc="On a back-to-back make he heats up: shoots more often AND more accurately."),
     "quick_release":  dict(name="Quick Release", cat="shooting", active=True,
                            desc="Hard to contest; help defense arrives too late."),
-    "corner_spec":    dict(name="Corner Specialist", cat="shooting", active=False,
-                           desc="Shoots better from the corners specifically."),
+    "corner_spec":    dict(name="Corner Specialist", cat="shooting", active=True,
+                           desc="Big accuracy boost on threes taken from the corners."),
     # --- finishing (ACTIVE) -------------------------------------------------
     "dream_shake":    dict(name="Dream Shake", cat="finishing", active=True,
                            desc="Scores a rim-quality shot from midrange."),
@@ -332,8 +396,8 @@ ABILITIES = {
                            desc="Heavily reduces his matchup's scoring."),
     "rim_protector":  dict(name="Rim Protector", cat="defense", active=True,
                            desc="Suppresses all shots near the basket."),
-    "shot_blocker":   dict(name="Shot Blocker", cat="defense", active=False,
-                           desc="Chance to swat his man's rim attempt."),
+    "shot_blocker":   dict(name="Shot Blocker", cat="defense", active=True,
+                           desc="Real chance to SWAT a nearby rim or midrange attempt."),
     # --- defense off-ball / steals (ACTIVE) --------------------------------
     "pickpocket":     dict(name="Pickpocket", cat="defense", active=True,
                            desc="High steal chance in his man's passing lane."),
@@ -344,15 +408,15 @@ ABILITIES = {
                            desc="Grants extra cap space each round while rostered."),
     "fan_favorite":   dict(name="Fan Favorite", cat="meta", active=True,
                            desc="Worth more on release (+2 cap back)."),
-    "mentor":         dict(name="Mentor", cat="meta", active=False,
-                           desc="An adjacent low-level teammate levels faster."),
+    "mentor":         dict(name="Mentor", cat="meta", active=True,
+                           desc="Lifts teammates' accuracy — the longer they've played together, the more."),
     # --- negative / drawback ------------------------------------------------
     "turnover_prone": dict(name="Turnover Prone", cat="negative", active=True,
                            desc="Great scorer, but higher turnover risk."),
     "ball_stopper":   dict(name="Ball Stopper", cat="negative", active=True,
                            desc="Scores well but lowers teammates' offense."),
-    "streaky":        dict(name="Streaky", cat="negative", active=False,
-                           desc="Bigger swings — hotter and colder than his rating."),
+    "streaky":        dict(name="Streaky", cat="negative", active=True,
+                           desc="Rides the wave — far more likely than most to repeat his last shot's outcome."),
 }
 
 
@@ -509,114 +573,136 @@ def tier_ceiling_for_round(round_no):
 # the same base stats every run, so reputations stick ("I rode Mike Fletcher to
 # 10 wins, he averaged 30"). These base stats are the player's identity; signing
 # and merging (level_up) are what improve them within a run.
-#   (name, archetype, tier, off, dfn, pas, stl, ability)
+#   (name, archetype, tier, sht, dfn, plm, ath, ability)
+#   sht=Shooting, dfn=Defense, plm=Playmaking, ath=Athleticism (these four are the
+#   shown ratings the sim reads directly — NOT off/dfn/pas/stl; see gen_pool.py).
 _POOL_RAW = [
     # --- Tier 1 ---
-    ('Grant Miller', 'Scoring PG', 1, 7, 2, 5, 3, 'iso_threat'),
-    ('Jabari Ward', 'Scoring PG', 1, 5, 2, 3, 2, 'iso_threat'),
-    ('Jeremiah Hamilton', 'Slashing SF', 1, 4, 4, 3, 6, 'iso_threat'),
-    ('Rome Allen', 'Slashing SF', 1, 3, 4, 2, 5, 'eurostep'),
-    ('Isaiah Mathis', 'Shooting SF', 1, 7, 4, 3, 2, 'quick_release'),
-    ('Jose Booker', 'Shooting SF', 1, 7, 3, 2, 2, 'catch_shoot'),
-    ('Carson Reyes', 'Rim-Run Big', 1, 2, 5, 2, 8, 'ball_stopper'),
-    ('Ivan Clark', 'Rim-Run Big', 1, 2, 5, 2, 7, 'ball_stopper'),
-    ('Jackson Pike', 'Pass-First PG', 1, 3, 4, 7, 2, 'tempo_control'),
-    ('Mike Fletcher', 'Pass-First PG', 1, 4, 3, 7, 2, 'tempo_control'),
-    ('Zeke Edwards', 'Pass-First PG', 1, 4, 4, 7, 2, 'floor_general'),
-    ('Damian Norman', 'Lockdown Wing', 1, 3, 7, 2, 2, 'on_ball_menace'),
-    ('Devin Dawson', 'Lockdown Wing', 1, 3, 5, 2, 2, 'on_ball_menace'),
-    ('Corey Booker', '3&D Wing', 1, 5, 6, 2, 3, 'deadeye'),
-    ('Silas Rice', '3&D Wing', 1, 5, 6, 2, 3, 'deadeye'),
-    ('Miles Patterson', 'Stretch 4', 1, 6, 3, 2, 3, 'deadeye'),
-    ('Tyler Warner', 'Stretch 4', 1, 7, 4, 2, 3, 'catch_shoot'),
-    ('Vince Ortega', 'Point Forward', 1, 4, 4, 5, 3, 'iso_threat'),
-    ('Will Dawson', 'Point Forward', 1, 5, 4, 4, 4, 'tempo_control'),
-    ('Jax Collins', 'Screening Big', 1, 2, 7, 2, 5, 'on_ball_menace'),
-    ('Lamar Hamilton', 'Combo Guard', 1, 6, 2, 3, 2, 'deadeye'),
-    ('Jax Davis', 'Sharpshooter', 1, 8, 2, 4, 2, 'catch_shoot'),
-    ('Zeke Williams', 'Two-Way Forward', 1, 4, 6, 2, 5, 'on_ball_menace'),
-    ('Lamar Payne', 'Stretch Center', 1, 6, 4, 2, 4, 'catch_shoot'),
-    ('Javon Tate', 'Post Scorer', 1, 4, 4, 3, 8, 'ball_stopper'),
-    ('Jeremiah Mensah', 'Defensive Anchor', 1, 2, 7, 3, 5, 'on_ball_menace'),
+    ('Jett Fields', 'Scoring PG', 1, 4, 3, 5, 2, 'soft_touch'),
+    ('Trevor Tate', 'Scoring PG', 1, 5, 5, 3, 2, 'handles'),
+    ('Dee Ward', 'Slashing SF', 1, 4, 7, 3, 5, 'iso_threat'),
+    ('Tyler Pavlov', 'Slashing SF', 1, 3, 5, 2, 6, 'iso_threat'),
+    ('Dalton Walker', 'Shooting SF', 1, 7, 7, 3, 2, 'deadeye'),
+    ('Mark Vance', 'Shooting SF', 1, 6, 4, 3, 2, 'deadeye'),
+    ('Jimmy Cook', 'Rim-Run Big', 1, 2, 7, 3, 6, 'soft_touch'),
+    ('Kai Robinson', 'Rim-Run Big', 1, 2, 7, 2, 6, 'rim_protector'),
+    ('Julian Adams', 'Pass-First PG', 1, 2, 7, 6, 2, 'on_ball_menace'),
+    ('Keenan Underwood', 'Pass-First PG', 1, 2, 5, 6, 2, 'tempo_control'),
+    ('Mike Fletcher', 'Pass-First PG', 1, 3, 5, 7, 2, 'tempo_control'),
+    ('Caleb Mraz', 'Lockdown Wing', 1, 2, 7, 2, 2, 'pickpocket'),
+    ('Zane Barnes', 'Lockdown Wing', 1, 2, 7, 2, 2, 'on_ball_menace'),
+    ('Christian Bryant', '3&D Wing', 1, 3, 7, 3, 2, 'corner_spec'),
+    ('Xavier Garcia', '3&D Wing', 1, 5, 7, 2, 2, 'catch_shoot'),
+    ('Keenan Garcia', 'Stretch 4', 1, 7, 5, 2, 2, 'catch_shoot'),
+    ('Omar Long', 'Stretch 4', 1, 6, 7, 2, 2, 'soft_touch'),
+    ('Solomon Dawson', 'Point Forward', 1, 3, 5, 6, 2, 'tempo_control'),
+    ('Tyrell Miller', 'Point Forward', 1, 2, 6, 5, 2, 'iso_threat'),
+    ('Jabari Cook', 'Screening Big', 1, 2, 7, 4, 2, 'on_ball_menace'),
+    ('Julian Murphy', 'Screening Big', 1, 2, 7, 2, 2, 'rim_protector'),
+    ('Jarrett Campbell', 'Combo Guard', 1, 4, 5, 4, 2, 'iso_threat'),
+    ('Tyrell Wells', 'Combo Guard', 1, 5, 5, 5, 2, 'deadeye'),
+    ('Aaron Johnson', 'Sharpshooter', 1, 7, 6, 2, 2, 'deadeye'),
+    ('Tyrell Washington', 'Sharpshooter', 1, 7, 7, 2, 2, 'deadeye'),
+    ('Jabari Flowers', 'Two-Way Forward', 1, 2, 7, 2, 3, 'soft_touch'),
+    ('Theo Thomas', 'Two-Way Forward', 1, 2, 7, 2, 4, 'eurostep'),
+    ('Trent Riley', 'Stretch Center', 1, 5, 7, 4, 3, 'deadeye'),
+    ('Isaiah Riley', 'Post Scorer', 1, 3, 5, 2, 6, 'ball_stopper'),
+    ('Greg Novak', 'Defensive Anchor', 1, 2, 7, 4, 2, 'shot_blocker'),
     # --- Tier 2 ---
-    ('Jackson Murray', 'Scoring PG', 2, 8, 3, 4, 3, 'deadeye'),
-    ('Ryan Mensah', 'Scoring PG', 2, 8, 4, 3, 3, 'turnover_prone'),
-    ('Bryce Cruz', 'Slashing SF', 2, 5, 3, 4, 7, 'eurostep'),
-    ('Desmond Mraz', 'Slashing SF', 2, 5, 5, 2, 7, 'killer_cross'),
-    ('Corey Tran', 'Shooting SF', 2, 8, 6, 4, 2, 'catch_shoot'),
-    ('Theo Murray', 'Shooting SF', 2, 9, 5, 4, 3, 'deadeye'),
-    ('Ben Scott', 'Rim-Run Big', 2, 3, 6, 2, 10, 'rim_protector'),
-    ('Jordan Butler', 'Rim-Run Big', 2, 3, 6, 3, 10, 'putback'),
-    ('Cole Wells', 'Pass-First PG', 2, 4, 5, 9, 2, 'floor_general'),
-    ('Cooper Harris', 'Pass-First PG', 2, 4, 3, 9, 2, 'handles'),
-    ('Ryan Voss', 'Lockdown Wing', 2, 4, 7, 2, 3, 'on_ball_menace'),
-    ('Ty Marsh', 'Lockdown Wing', 2, 3, 8, 3, 2, 'lockdown'),
-    ('Isaac Hughes', '3&D Wing', 2, 6, 6, 2, 3, 'quick_release'),
-    ('Kevin Boyd', '3&D Wing', 2, 5, 5, 2, 3, 'on_ball_menace'),
-    ('Jason Mraz', 'Stretch 4', 2, 8, 5, 4, 3, 'limitless'),
-    ('Nash Boyd', 'Stretch 4', 2, 9, 6, 4, 3, 'catch_shoot'),
-    ('Quincy Rivera', 'Point Forward', 2, 6, 3, 6, 4, 'floor_general'),
-    ('Grant Vance', 'Screening Big', 2, 2, 9, 3, 6, 'rim_protector'),
-    ('Mason Nelson', 'Combo Guard', 2, 8, 5, 5, 3, 'handles'),
-    ('Zeke Dawson', 'Sharpshooter', 2, 9, 4, 4, 2, 'catch_shoot'),
-    ('Quincy Johnson', 'Two-Way Forward', 2, 4, 6, 4, 5, 'eurostep'),
-    ('Mike Perry', 'Stretch Center', 2, 7, 5, 2, 4, 'fan_favorite'),
-    ('Malik Jenkins', 'Post Scorer', 2, 5, 5, 4, 9, 'putback'),
-    ('Trent Fields', 'Defensive Anchor', 2, 2, 8, 3, 5, 'rim_protector'),
+    ('Jack Allen', 'Scoring PG', 2, 8, 6, 5, 3, 'soft_touch'),
+    ('Jackson Carter', 'Scoring PG', 2, 8, 6, 5, 2, 'streaky'),
+    ('Jimmy Owens', 'Slashing SF', 2, 4, 6, 4, 6, 'soft_touch'),
+    ('Knox Ellis', 'Slashing SF', 2, 5, 9, 2, 6, 'eurostep'),
+    ('Cooper Carter', 'Shooting SF', 2, 9, 8, 3, 3, 'corner_spec'),
+    ('Hollis Wallace', 'Shooting SF', 2, 9, 7, 3, 2, 'limitless'),
+    ('Jarrett Pike', 'Rim-Run Big', 2, 3, 9, 2, 8, 'rim_protector'),
+    ('Landon Dixon', 'Rim-Run Big', 2, 2, 9, 2, 8, 'soft_touch'),
+    ('Davon Payne', 'Pass-First PG', 2, 2, 9, 9, 2, 'floor_general'),
+    ('Tyrese Lindqvist', 'Pass-First PG', 2, 3, 9, 8, 2, 'floor_general'),
+    ('Omar Mensah', 'Lockdown Wing', 2, 2, 9, 4, 2, 'interceptor'),
+    ('Tyrese Gray', 'Lockdown Wing', 2, 3, 9, 3, 2, 'interceptor'),
+    ('Greg Long', '3&D Wing', 2, 6, 9, 3, 2, 'catch_shoot'),
+    ('Malik Edwards', '3&D Wing', 2, 4, 9, 2, 2, 'quick_release'),
+    ('Devin Banks', 'Stretch 4', 2, 8, 8, 3, 2, 'limitless'),
+    ('Enzo Mack', 'Stretch 4', 2, 9, 7, 3, 2, 'deadeye'),
+    ('Austin Perry', 'Point Forward', 2, 5, 5, 7, 2, 'handles'),
+    ('Drew Butler', 'Point Forward', 2, 4, 8, 7, 4, 'mentor'),
+    ('Desmond Morgan', 'Screening Big', 2, 2, 9, 2, 3, 'interceptor'),
+    ('Will Brown', 'Screening Big', 2, 2, 9, 3, 4, 'shot_blocker'),
+    ('Quincy Mack', 'Combo Guard', 2, 6, 5, 6, 2, 'streaky'),
+    ('Vince Gray', 'Combo Guard', 2, 7, 5, 5, 2, 'iso_threat'),
+    ('Reggie Franklin', 'Sharpshooter', 2, 9, 8, 4, 2, 'catch_shoot'),
+    ('Quentin Jones', 'Two-Way Forward', 2, 4, 9, 4, 3, 'on_ball_menace'),
+    ('Grady Powell', 'Stretch Center', 2, 7, 8, 2, 3, 'catch_shoot'),
+    ('Mark Gordon', 'Post Scorer', 2, 4, 5, 4, 7, 'ball_stopper'),
+    ('Ronnie Reed', 'Defensive Anchor', 2, 2, 9, 2, 3, 'interceptor'),
     # --- Tier 3 ---
-    ('Grant Whitlock', 'Scoring PG', 3, 10, 3, 6, 4, 'soft_touch'),
-    ('Isaiah Fox', 'Scoring PG', 3, 10, 2, 6, 4, 'iso_threat'),
-    ('Bradley Ingram', 'Slashing SF', 3, 5, 5, 3, 8, 'eurostep'),
-    ('Davon Fox', 'Slashing SF', 3, 6, 6, 4, 9, 'killer_cross'),
-    ('Brock Thomas', 'Shooting SF', 3, 11, 7, 3, 3, 'catch_shoot'),
-    ('Ezra Dixon', 'Shooting SF', 3, 9, 7, 3, 3, 'quick_release'),
-    ('Jaylen Robinson', 'Rim-Run Big', 3, 3, 7, 2, 11, 'soft_touch'),
-    ('Marquise Murphy', 'Rim-Run Big', 3, 3, 8, 3, 10, 'rim_protector'),
-    ('Ty Dawson', 'Pass-First PG', 3, 4, 4, 10, 2, 'dimer'),
-    ('Kai Campbell', 'Lockdown Wing', 3, 5, 9, 4, 3, 'on_ball_menace'),
-    ('Damon Griffin', '3&D Wing', 3, 7, 10, 3, 4, 'catch_shoot'),
-    ('Jalen Walker', 'Stretch 4', 3, 10, 7, 4, 3, 'deadeye'),
-    ('Mario Salas', 'Point Forward', 3, 7, 6, 8, 5, 'tempo_control'),
-    ('Jeremiah Haas', 'Screening Big', 3, 2, 9, 5, 7, 'on_ball_menace'),
-    ('Trey Lindqvist', 'Combo Guard', 3, 8, 6, 5, 3, 'deadeye'),
-    ('Jackson Freeman', 'Sharpshooter', 3, 11, 2, 2, 2, 'catch_shoot'),
-    ('Eli Patterson', 'Two-Way Forward', 3, 5, 10, 5, 6, 'on_ball_menace'),
-    ('Mario West', 'Stretch Center', 3, 9, 7, 3, 5, 'rim_protector'),
-    ('Quentin Cunningham', 'Post Scorer', 3, 5, 8, 4, 10, 'iso_threat'),
-    ('Chase Webb', 'Defensive Anchor', 3, 2, 11, 4, 6, 'rim_protector'),
+    ('Dante Carter', 'Scoring PG', 3, 7, 6, 5, 2, 'star_power'),
+    ('Wes Diallo', 'Scoring PG', 3, 9, 6, 5, 4, 'fan_favorite'),
+    ('Jaylon Dixon', 'Slashing SF', 3, 5, 10, 3, 8, 'eurostep'),
+    ('Keon Mills', 'Slashing SF', 3, 6, 9, 4, 8, 'soft_touch'),
+    ('Rell Baker', 'Shooting SF', 3, 9, 8, 3, 3, 'deadeye'),
+    ('Silas Rhodes', 'Shooting SF', 3, 11, 9, 5, 2, 'catch_shoot'),
+    ('Dawson Reyes', 'Rim-Run Big', 3, 2, 11, 3, 8, 'lob_threat'),
+    ('Joel Woods', 'Rim-Run Big', 3, 3, 10, 2, 8, 'lob_threat'),
+    ('Devin Hamilton', 'Pass-First PG', 3, 3, 11, 11, 2, 'mentor'),
+    ('Nico Griffin', 'Pass-First PG', 3, 4, 9, 10, 2, 'floor_general'),
+    ('Dillon Moore', 'Lockdown Wing', 3, 3, 11, 3, 2, 'lockdown'),
+    ('Isaac Cruz', 'Lockdown Wing', 3, 4, 11, 3, 2, 'interceptor'),
+    ('Devin Fox', '3&D Wing', 3, 5, 11, 4, 2, 'lockdown'),
+    ('Juju Patterson', '3&D Wing', 3, 5, 11, 4, 2, 'on_ball_menace'),
+    ('Otis Kemp', 'Stretch 4', 3, 9, 8, 3, 2, 'soft_touch'),
+    ('Terry Fields', 'Point Forward', 3, 6, 8, 9, 2, 'mentor'),
+    ('Aaron Foster', 'Screening Big', 3, 2, 11, 5, 4, 'rim_protector'),
+    ('Lamar Cook', 'Combo Guard', 3, 9, 8, 7, 4, 'deadeye'),
+    ('Otis Robinson', 'Sharpshooter', 3, 10, 7, 4, 2, 'catch_shoot'),
+    ('Dominic Cunningham', 'Two-Way Forward', 3, 4, 11, 2, 5, 'eurostep'),
+    ('Adrian Salas', 'Stretch Center', 3, 6, 8, 2, 2, 'deadeye'),
+    ('Jax Riley', 'Post Scorer', 3, 4, 10, 4, 9, 'putback'),
+    ('Pax Howard', 'Defensive Anchor', 3, 2, 11, 4, 2, 'rim_protector'),
     # --- Tier 4 ---
-    ('Jett Clark', 'Scoring PG', 4, 10, 5, 7, 4, 'turnover_prone'),
-    ('Grant Underwood', 'Slashing SF', 4, 5, 7, 3, 8, 'eurostep'),
-    ('Hollis Allen', 'Shooting SF', 4, 12, 6, 3, 3, 'limitless'),
-    ('Grant Love', 'Rim-Run Big', 4, 4, 11, 4, 13, 'soft_touch'),
-    ('Damian Mack', 'Pass-First PG', 4, 4, 6, 12, 2, 'tempo_control'),
-    ('Myles Hall', 'Lockdown Wing', 4, 4, 11, 3, 3, 'on_ball_menace'),
-    ('Kareem Warner', '3&D Wing', 4, 8, 11, 3, 4, 'on_ball_menace'),
-    ('Dominic Turner', 'Stretch 4', 4, 9, 7, 3, 3, 'deadeye'),
-    ('Jabari Dawson', 'Point Forward', 4, 7, 5, 9, 5, 'dimer'),
-    ('Damon Mathis', 'Screening Big', 4, 2, 12, 5, 6, 'on_ball_menace'),
-    ('Rell Kringle', 'Combo Guard', 4, 11, 7, 7, 4, 'deadeye'),
-    ('Trent Adams', 'Sharpshooter', 4, 12, 5, 3, 2, 'corner_spec'),
-    ('Jarrett Washington', 'Two-Way Forward', 4, 5, 11, 5, 6, 'pickpocket'),
+    ('Chris Clark', 'Scoring PG', 4, 11, 6, 5, 3, 'limitless'),
+    ('Drew Wells', 'Scoring PG', 4, 11, 9, 8, 5, 'soft_touch'),
+    ('Ivan Woods', 'Slashing SF', 4, 5, 12, 4, 10, 'turnover_prone'),
+    ('Troy Anderson', 'Shooting SF', 4, 11, 10, 4, 2, 'quick_release'),
+    ('Sam Thompson', 'Rim-Run Big', 4, 2, 12, 4, 11, 'ball_stopper'),
+    ('Shane Booker', 'Pass-First PG', 4, 4, 13, 12, 2, 'floor_general'),
+    ('Keon Greer', 'Lockdown Wing', 4, 3, 13, 4, 2, 'lockdown'),
+    ('Ty Cruz', '3&D Wing', 4, 9, 13, 5, 2, 'on_ball_menace'),
+    ('Isaac Salas', 'Stretch 4', 4, 11, 12, 4, 2, 'limitless'),
+    ('Jaylen Mitchell', 'Point Forward', 4, 6, 8, 11, 2, 'handles'),
+    ('Christian Hill', 'Screening Big', 4, 2, 13, 5, 5, 'on_ball_menace'),
+    ('Troy Young', 'Combo Guard', 4, 11, 8, 9, 2, 'handles'),
+    ('Andre Reed', 'Sharpshooter', 4, 13, 9, 5, 2, 'catch_shoot'),
+    ('Dillon Sullivan', 'Two-Way Forward', 4, 4, 13, 3, 7, 'eurostep'),
+    ('Mason Morris', 'Stretch Center', 4, 10, 11, 5, 2, 'deadeye'),
+    ('Ben Barnes', 'Post Scorer', 4, 6, 10, 3, 9, 'putback'),
+    ('Jackson Wells', 'Defensive Anchor', 4, 2, 13, 5, 4, 'on_ball_menace'),
     # --- Tier 5 ---
-    ('Tobias Hughes', 'Scoring PG', 5, 11, 6, 7, 4, 'soft_touch'),
-    ('Marcus Freeman', 'Slashing SF', 5, 6, 9, 6, 10, 'soft_touch'),
-    ('Dee Underwood', 'Shooting SF', 5, 12, 8, 3, 3, 'quick_release'),
-    ('Davon Walker', 'Rim-Run Big', 5, 4, 12, 3, 13, 'rim_protector'),
-    ('Quinn Holt', 'Pass-First PG', 5, 4, 7, 13, 2, 'handles'),
-    ('Wes Wright', 'Lockdown Wing', 5, 4, 12, 4, 3, 'interceptor'),
-    ('Jeremiah Dixon', '3&D Wing', 5, 9, 12, 4, 4, 'quick_release'),
-    ('Bradley Vance', 'Stretch 4', 5, 13, 7, 5, 4, 'deadeye'),
-    ('Josh Cox', 'Point Forward', 5, 8, 6, 10, 6, 'handles'),
-    ('Jalen Morgan', 'Screening Big', 5, 2, 13, 6, 7, 'rim_protector'),
+    ('Noah Phillips', 'Scoring PG', 5, 12, 9, 8, 4, 'heat_check'),
+    ('Grady Doyle', 'Slashing SF', 5, 7, 11, 6, 11, 'eurostep'),
+    ('Dwayne Williams', 'Shooting SF', 5, 15, 12, 6, 4, 'corner_spec'),
+    ('Chris Nelson', 'Rim-Run Big', 5, 2, 14, 4, 12, 'dream_shake'),
+    ('Travis King', 'Pass-First PG', 5, 5, 12, 12, 3, 'tempo_control'),
+    ('Cameron Evans', 'Lockdown Wing', 5, 5, 15, 4, 2, 'on_ball_menace'),
+    ('Rell Freeman', '3&D Wing', 5, 8, 15, 5, 2, 'deadeye'),
+    ('Quinn Brown', 'Stretch 4', 5, 12, 13, 5, 2, 'limitless'),
+    ('Kyle Zima', 'Point Forward', 5, 7, 10, 12, 5, 'dimer'),
+    ('Jordan Rhodes', 'Screening Big', 5, 2, 15, 6, 6, 'on_ball_menace'),
+    ('Jabari Bryant', 'Combo Guard', 5, 11, 10, 7, 4, 'handles'),
+    ('Dwayne Norman', 'Sharpshooter', 5, 15, 11, 5, 2, 'deadeye'),
+    ('Nate Barnes', 'Two-Way Forward', 5, 6, 15, 6, 7, 'lockdown'),
+    ('Will Vance', 'Stretch Center', 5, 11, 12, 5, 3, 'rim_protector'),
     # --- Tier 6 ---
-    ('Ace Nakamura', 'Scoring PG', 6, 12, 6, 9, 4, 'handles'),
-    ('Marv Quill', 'Scoring PG', 6, 12, 5, 9, 4, 'star_power'),
-    ('Zeke Abara', 'Slashing SF', 6, 6, 10, 4, 10, 'eurostep'),
-    ('Damon Greer', 'Shooting SF', 6, 13, 8, 6, 3, 'limitless'),
-    ('Trey Salas', 'Rim-Run Big', 6, 4, 11, 4, 15, 'lob_threat'),
-    ('Sol Ingram', 'Lockdown Wing', 6, 5, 13, 4, 3, 'lockdown'),
-    ('Kobi Sefu', 'Screening Big', 6, 3, 14, 9, 10, 'dream_shake'),
+    ('Theo Long', 'Scoring PG', 6, 14, 9, 11, 5, 'turnover_prone'),
+    ('Flynn Flowers', 'Slashing SF', 6, 7, 14, 5, 11, 'soft_touch'),
+    ('Darius Frazier', 'Shooting SF', 6, 16, 12, 5, 2, 'catch_shoot'),
+    ('Javon Cooper', 'Rim-Run Big', 6, 2, 15, 3, 14, 'rim_protector'),
+    ('Tyrell Dixon', 'Pass-First PG', 6, 3, 13, 15, 2, 'handles'),
+    ('Henry Lamonet', 'Lockdown Wing', 6, 5, 17, 5, 2, 'lockdown'),
+    ('Myles Anderson', 'Lockdown Wing', 6, 5, 17, 4, 2, 'pickpocket'),
+    ('Kobi Baker', '3&D Wing', 6, 8, 17, 5, 2, 'on_ball_menace'),
+    ('Otis Powell', 'Stretch 4', 6, 15, 15, 5, 2, 'limitless'),
 ]
 POOL = [{"name": n, "archetype": a, "tier": t, "sht": sh, "dfn": d,
          "plm": pl, "ath": at, "ability": ab}
@@ -628,17 +714,17 @@ POOL = [{"name": n, "archetype": a, "tier": t, "sht": sh, "dfn": d,
 # ---------------------------------------------------------------------------
 PASS_VERBS = ["dishes to", "kicks it out to", "finds", "swings it to", "feeds",
               "threads it to", "drops it off to", "hits", "lobs it to"]
-STEAL_LINES = ["PICKED OFF by {d}!", "{d} jumps the lane — STEAL!",
+STEAL_LINES = ["PICKED OFF by {d}!", "{d} jumps the lane for the STEAL!",
                "{d} reads it and takes it away!", "Stolen by {d}!",
-               "{d} pickpockets him!", "{d} deflects and recovers — turnover!"]
+               "{d} pickpockets him!", "{d} deflects and recovers it for a turnover!"]
 MADE = {
     "layup": ["throws it DOWN!", "finishes at the rim", "lays it in off the glass",
-              "slices to the cup — and the bucket", "strong finish through contact",
+              "slices to the cup for the bucket", "strong finish through contact",
               "rises up and flushes it", "scoops it in"],
     "midrange": ["knocks down the jumper", "pull-up is GOOD", "drains the mid-range",
-                 "cashes the elbow jumper", "rises and fires — money"],
-    "three": ["from way downtown — BANG!", "splashes the triple", "buries it from deep",
-              "wet from beyond the arc", "drills the three", "lets it fly — GOT IT"],
+                 "cashes the elbow jumper", "rises and fires for the money jumper"],
+    "three": ["from way downtown, BANG!", "splashes the triple", "buries it from deep",
+              "wet from beyond the arc", "drills the three", "lets it fly and GETS IT"],
 }
 MISS = {
     "layup": ["can't finish at the rim", "blows the layup", "bricks it inside",
@@ -649,7 +735,10 @@ MISS = {
               "front-irons the triple", "way short from deep"],
 }
 MISS_CONTESTED = ["is STUFFED by {d}!", "gets it swatted by {d}!",
-                  "rises but {d} contests — no good", "shoots over {d} — off the iron"]
+                  "rises but {d} contests it, no good", "shoots over {d} and off the iron"]
+BLOCK_LINES = ["is REJECTED by {d}!", "gets it SWATTED by {d}!",
+               "has it sent back by {d}!", "is denied at the rim by {d}!",
+               "{d} says NOT IN MY HOUSE — blocked!", "is pinned to the glass by {d}!"]
 OPEN_PREFIX = ["wide open, ", "with room, ", "uncontested, ", "all alone, "]
 
 
@@ -687,6 +776,7 @@ def _instantiate(entry, level=1):
         "cost": tier_price(entry["tier"]),
         "level": level,
         "xp": XP_FOR_LEVEL[level],   # copies absorbed so far (SAP-style progress)
+        "tenure": 0,                 # rounds played on your roster (drives Mentor)
         # the four SHOWN ratings
         "sht": sht, "dfn": dfn, "plm": plm, "ath": ath,
         "reb": ARCHETYPE_REB.get(archetype, 4),   # hidden rebounding rating
@@ -1036,6 +1126,22 @@ def _team_off_bonus(offense):
     return bonus
 
 
+def _make_bonuses(offense):
+    """Per-shooter make-% deltas from team chemistry abilities. Mentor lifts each
+    teammate's accuracy, scaled by how long the two have shared the roster (the
+    overlap of their tenures), capped by MENTOR_CAP. id -> make-% delta."""
+    bonus = {p["id"]: 0.0 for p in offense}
+    for m in offense:
+        if m.get("ability") != "mentor":
+            continue
+        for q in offense:
+            if q["id"] == m["id"]:
+                continue
+            together = min(m.get("tenure", 0), q.get("tenure", 0))
+            bonus[q["id"]] = min(MENTOR_CAP, bonus[q["id"]] + MENTOR_PER * together)
+    return bonus
+
+
 def _pass_risk(passer, receiver, defense, off_pos, def_pos, to_mult=1.0):
     pp, rp = off_pos[passer["id"]], off_pos[receiver["id"]]
     pd = _dist(pp, rp)
@@ -1049,22 +1155,22 @@ def _pass_risk(passer, receiver, defense, off_pos, def_pos, to_mult=1.0):
         if sd < LANE_RANGE:
             dab = d.get("ability")           # ball-hawks jump the lane harder
             grab = 1.8 if dab == "interceptor" else 1.5 if dab == "pickpocket" else 1.0
-            contrib = (d.get("d_steal", d["dfn"] * 0.5) / 10.0) * 0.06 * (1 - sd / LANE_RANGE) * grab
+            contrib = (d.get("d_steal", d["dfn"] * 0.5) / 10.0) * STEAL_LANE * (1 - sd / LANE_RANGE) * grab
             lane += contrib
             if contrib > worst:
                 worst, culprit = contrib, d
     # the farther the pass travels, the easier it is to jump (steeper distance term)
-    p = 0.02 + 0.006 * pd + lane - 0.02 * (passer["plm"] - 5)
+    p = TO_BASE + TO_DIST * pd + lane - 0.02 * (passer["plm"] - 5)
     if passer.get("ability") == "handles":         # secure handle
         p *= 0.65
     if receiver.get("ability") == "turnover_prone": # risky to feed
         p *= 1.4
     p *= to_mult                                    # team-wide (e.g. Tempo Control)
-    return _clamp(p, 0.02, 0.6), culprit
+    return _clamp(p, 0.02, TO_CAP), culprit
 
 
 def _evaluate(shooter, defense, mapping, off_pos, def_pos,
-              passer=None, off_pass=False, off_bonus=None):
+              passer=None, off_pass=False, off_bonus=None, make_bonus=None):
     """Expected look quality for `shooter` taking the shot this possession,
     using live (post-dribble) positions. Player abilities adjust the look:
     the shooter's, his man defender's, and any rim-protecting help defender's."""
@@ -1133,10 +1239,21 @@ def _evaluate(shooter, defense, mapping, off_pos, def_pos,
         bonus += 0.13
     if off_pass and passer and passer.get("ability") == "dimer":
         bonus += 0.06
+    # Corner Specialist: deadly from the corners specifically (low + near a sideline)
+    if (sab == "corner_spec" and shot == "three"
+            and sp[1] <= CORNER_Y and abs(sp[0] - 50.0) >= (50.0 - CORNER_X)):
+        bonus += CORNER_BONUS
+    # Heat Check: while hot (back-to-back makes) his shot falls more often
+    if sab == "heat_check" and shooter.get("_streak", 0) >= HEAT_STREAK:
+        bonus += HEAT_BONUS
+    # Streaky: nudged toward repeating his last outcome (hot stays hot, cold stays cold)
+    if sab == "streaky" and shooter.get("_last_made") is not None:
+        bonus += STREAK_SWING if shooter["_last_made"] else -STREAK_SWING
 
     off_adj = (off_bonus or {}).get(shooter["id"], 0)
+    mentor_adj = (make_bonus or {}).get(shooter["id"], 0.0)   # tenure-scaled Mentor lift
     prob = _clamp(base + ZONE_COEFF * (zone_rating + off_adj - SCORE_REF) + bonus
-                  - contest - help_d - deep, 0.05, 0.96)
+                  + mentor_adj - contest - help_d - deep, 0.05, 0.96)
     pressure = contest + help_d
     return dict(shot=shot, pts=pts, prob=prob, fit=0.0, pressure=pressure, man=man)
 
@@ -1186,15 +1303,66 @@ def _oreb_won(offense, defense):
     return random.random() < _clamp(chance, 0.04, OREB_CAP)
 
 
-def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_mult=1.0):
+# --- shot-diet calibration (wires ARCHETYPE_ZONE_MIX into shot selection) -----
+# Each candidate shooter's selection EV is biased by how characteristic his shot
+# ZONE is for his archetype (ARCHETYPE_ZONE_MIX, from 2015-16 tracking). Because
+# ZONE_MIX is OCCUPANCY (where players stand), not attempts, ZONE_CAL corrects it
+# to the real league ATTEMPT mix (2015-16 ~33% three / paint-heavy). SHOT_FUNNEL
+# replaces the old ev**4 over-funnel — softer so the shot diet, not raw EV, leads.
+ZONE_IDX = {"layup": 0, "midrange": 1, "three": 2}
+ZONE_CAL = (2.0, 2.0, 0.40)   # rim, mid, three attempt multipliers (tuned to ~33% 3PA)
+SHOT_FUNNEL = 3
+
+
+def _predicted_zone(player, setup_pos):
+    """The zone the player would actually shoot from after working to his spot
+    (spot-ups step out behind the arc, cutters/rollers drive in)."""
+    sx, sy = setup_pos
+    tx, ty = _shot_target(player["behavior"], sx, sy)
+    spot = _step_toward(sx, sy, tx, ty, SHOT_STEP)
+    return shot_from_distance(_dist(spot, BASKET))[0]
+
+
+def _shot_blocker(shooter, look, defense, mapping, off_pos, def_pos):
+    """Does a Shot Blocker swat this attempt? Only rim (and, rarely, midrange) shots
+    can be blocked. The shooter's man counts if he has the ability; so does any
+    Shot Blocker helping within HELP_RANGE. Returns the blocking defender or None."""
+    shot = look["shot"]
+    if shot == "three":
+        return None
+    sp = off_pos[shooter["id"]]
+    man = look.get("man")
+    cands = []
+    if man and man.get("ability") == "shot_blocker" and man["id"] in def_pos:
+        cands.append(man)
+    for od in defense:
+        if od.get("ability") != "shot_blocker" or od["id"] not in def_pos:
+            continue
+        if man and od["id"] == man["id"]:
+            continue
+        if _dist(def_pos[od["id"]], sp) < HELP_RANGE:
+            cands.append(od)
+    best = None
+    for d in cands:
+        chance = (d.get("d_block", d["dfn"] * 0.5)) * BLOCK_SCALE
+        if shot == "midrange":
+            chance *= BLOCK_MID
+        if random.random() < _clamp(chance, 0.0, 0.6):
+            best = d
+            break
+    return best
+
+
+def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_mult=1.0,
+                   make_bonus=None):
     """One possession: players drift into the play (setup), the team picks the
     best developing look, then that action is executed with justified movement —
     the shooter moves to get the shot, the passer steps in to deliver it.
-    `off_bonus`/`to_mult` carry team-wide ability effects. Returns
+    `off_bonus`/`to_mult`/`make_bonus` carry team-wide ability effects. Returns
     (points, events, setup_layout, shot_layout)."""
     events = []
     if not offense:
-        miss = [{"kind": "miss", "text": "Empty lineup — no shot.",
+        miss = [{"kind": "miss", "text": "Empty lineup, no shot.",
                  "actor": None, "target": None, "points": 0}]
         empty = {"offense": [], "defense": []}
         return 0, miss, empty, empty, None
@@ -1214,15 +1382,24 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
     for s in offense:
         passing_opt = s["id"] != initiator["id"]
         look = _evaluate(s, defense, mapping, setup, def_setup,
-                         passer=initiator, off_pass=passing_opt, off_bonus=off_bonus)
+                         passer=initiator, off_pass=passing_opt, off_bonus=off_bonus,
+                         make_bonus=make_bonus)
         to_p, culprit = (0.0, None)
         if passing_opt:
             to_p, culprit = _pass_risk(initiator, s, defense, setup, def_setup, to_mult)
-        # favor the open man + the archetype's shooting tendency
+        # data-derived shot diet: bias by how characteristic this shot zone is for
+        # the archetype (ARCHETYPE_ZONE_MIX), calibrated to real attempts (ZONE_CAL).
+        zone = _predicted_zone(s, setup[s["id"]])
+        zmix = ARCHETYPE_ZONE_MIX.get(s["archetype"])
+        zfreq = max(0.02, zmix[ZONE_IDX[zone]] if zmix else 0.33) * ZONE_CAL[ZONE_IDX[zone]]
+        # Heat Check: when he's hot, the offense looks for him far more often
+        heat = (HEAT_SELECT if s.get("ability") == "heat_check"
+                and s.get("_streak", 0) >= HEAT_STREAK else 1.0)
+        # favor the open man + the archetype's shooting tendency + shot diet
         ev = (look["prob"] * look["pts"] * (1 - to_p)
-              * _open_factor(s, look, mapping) * _tend(s, "shoot"))
+              * _open_factor(s, look, mapping) * _tend(s, "shoot") * zfreq * heat)
         options.append((s, ev))
-    weights = [max(0.0001, ev) ** 4 for _, ev in options]
+    weights = [max(0.0001, ev) ** SHOT_FUNNEL for _, ev in options]
     shooter = random.choices([o[0] for o in options], weights=weights, k=1)[0]
 
     # --- build the pass chain: initiator -> [intermediates] -> shooter -------
@@ -1272,16 +1449,31 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
     shot_layout = possession_layout(offense, defense, cur, cur_def)
     look = _evaluate(shooter, defense, mapping, cur, cur_def,
                      passer=(chain[-2] if passing else None), off_pass=passing,
-                     off_bonus=off_bonus)
+                     off_bonus=off_bonus, make_bonus=make_bonus)
     contest_def = look["man"]["id"] if look["man"] else None
     made = random.random() < look["prob"]
-    text = _shot_text(shooter, look["shot"], made, look["man"],
-                      look["pressure"], look["pts"])
+
+    # --- Shot Blocker: a nearby rim protector with the ability can SWAT it -------
+    blocker = _shot_blocker(shooter, look, defense, mapping, cur, cur_def)
+    if blocker is not None and made:
+        made = False
+    if blocker is not None:
+        contest_def = blocker["id"]
+        text = f"{shooter['name']} " + random.choice(BLOCK_LINES).format(d=blocker["name"])
+    else:
+        text = _shot_text(shooter, look["shot"], made, look["man"],
+                          look["pressure"], look["pts"])
     pts = look["pts"] if made else 0
+    # Heat Check / Streaky bookkeeping: the shooter's running outcome state
+    if made:
+        shooter["_streak"] = shooter.get("_streak", 0) + 1
+    else:
+        shooter["_streak"] = 0
+    shooter["_last_made"] = made
     events.append({
         "kind": "made" if made else "miss", "actor": shooter["id"],
         "target": contest_def, "points": pts, "shot": look["shot"],
-        "layout": shot_layout, "text": text,
+        "blocked": blocker is not None, "layout": shot_layout, "text": text,
     })
 
     # --- rebounding: a MISS can be grabbed by the offense for ONE putback ----
@@ -1318,11 +1510,12 @@ def _play_half(offense, defense, possessions=POSSESSIONS_PER_SIDE):
     ideal spots. Returns (points, [possession dicts with per-poss layout])."""
     mapping, doubles = assign_defense(offense, defense)
     off_bonus = _team_off_bonus(offense)
+    make_bonus = _make_bonuses(offense)
     to_mult = 0.85 if any(p.get("ability") == "tempo_control" for p in offense) else 1.0
     poss_list, total = [], 0
     for _ in range(possessions):
         pts, evs, setup_layout, shot_layout, handler = run_possession(
-            offense, defense, mapping, doubles, off_bonus, to_mult)
+            offense, defense, mapping, doubles, off_bonus, to_mult, make_bonus)
         total += pts
         poss_list.append({
             "points": pts,
@@ -1426,11 +1619,12 @@ def _sudden_death(you, opp, you_first):
     you_map, you_dbl = assign_defense(you, opp)
     opp_map, opp_dbl = assign_defense(opp, you)
     you_ob, opp_ob = _team_off_bonus(you), _team_off_bonus(opp)
+    you_mb, opp_mb = _make_bonuses(you), _make_bonuses(opp)
     you_to = 0.85 if any(p.get("ability") == "tempo_control" for p in you) else 1.0
     opp_to = 0.85 if any(p.get("ability") == "tempo_control" for p in opp) else 1.0
 
-    def trip(off, dfn, mp, db, ob, to):
-        pts, evs, sl, shl, h = run_possession(off, dfn, mp, db, ob, to)
+    def trip(off, dfn, mp, db, ob, to, mb):
+        pts, evs, sl, shl, h = run_possession(off, dfn, mp, db, ob, to, mb)
         return pts, {"points": pts, "events": evs, "handler": h,
                      "layout": sl, "shot_layout": shl, "ot": True}
 
@@ -1439,12 +1633,12 @@ def _sudden_death(you, opp, you_first):
     for _ in range(20):                       # cap guards against an endless tie
         for side in order:
             if side == "you":
-                pts, poss = trip(you, opp, you_map, you_dbl, you_ob, you_to)
+                pts, poss = trip(you, opp, you_map, you_dbl, you_ob, you_to, you_mb)
                 yposs.append(poss)
                 if pts > 0:
                     return "win", yposs, oposs
             else:
-                pts, poss = trip(opp, you, opp_map, opp_dbl, opp_ob, opp_to)
+                pts, poss = trip(opp, you, opp_map, opp_dbl, opp_ob, opp_to, opp_mb)
                 oposs.append(poss)
                 if pts > 0:
                     return "loss", yposs, oposs
