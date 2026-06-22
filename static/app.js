@@ -520,16 +520,6 @@ function renderUnlockNote() {
 const usedSlots = () => new Set(state.lineup.map((p) => p.slot));
 
 // colour-coded attributes (OFF red · DEF blue · PAS green · STL gold)
-// 2K-style overall rating (40-99) from the four shown ratings
-function ovr(p) {
-  const sum = (p.sht_disp ?? p.sht) + p.dfn + p.plm + p.ath;
-  return Math.max(40, Math.min(99, Math.round(48 + sum * 0.98)));
-}
-function ovrHTML(p) {
-  const v = ovr(p);
-  const cls = v >= 90 ? "elite" : v >= 80 ? "great" : v >= 70 ? "good" : "base";
-  return `<span class="ovr ${cls}"><b>${v}</b><small>OVR</small></span>`;
-}
 function statHTML(p) {
   return `<span class="st sht">SHT <b>${p.sht_disp ?? p.sht}</b></span>`
     + `<span class="st def">DEF <b>${p.dfn}</b></span>`
@@ -598,7 +588,6 @@ function renderPosbar() {
       + (p ? ` <span class="tier t${p.tier || 1}" title="Tier ${p.tier || 1} (${GEM[p.tier]})">T${p.tier || 1}</span>` : "")
       + `</div>` + (p
       ? `<div class="filled">
-           ${ovrHTML(p)}
            <div class="who"><b>${p.name} ${chemMark(p.id)}</b>
              <span class="arch">${levelBadge(p)} <b class="arch-name">${p.archetype}</b></span>
              <span class="abil">${p.ability_name || "No ability"}</span></div>
@@ -665,7 +654,6 @@ function renderShop() {
       const pos = p.positions.map((s) => POS_LABELS[s]).join("/");
       card.innerHTML =
         `<div class="chead">
-           ${ovrHTML(p)}
            <div class="cmeta"><b class="nm">${p.name}</b>
              <span class="sub">${pos} · <b class="arch-name">${p.archetype}</b></span></div>
            <button class="freeze" title="Hold through reroll and the next round">Hold</button>

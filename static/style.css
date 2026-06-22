@@ -21,10 +21,8 @@
   --accent:#ffc23d; --accent2:#ffd874; --accentink:#1a1206;
   /* stat colors: SHT shooting · DEF defense · PLM playmaking · ATH athleticism */
   --off:#ff7a3d; --def:#2f9bff; --pas:#27e07a; --stl:#ffc23d;
-  /* 2K MyTeam gem ladder (Rookie→HOF): Gold·Emerald·Sapphire·Ruby·Amethyst·Diamond */
+  /* tier accents (Rookie→HOF) — flat colored edges, no glow */
   --t1:#c79a3a; --t2:#1fbf6b; --t3:#2f9bff; --t4:#ff4d6a; --t5:#a06bf0; --t6:#74e6ff;
-  --t1glow:rgba(199,154,58,.5); --t2glow:rgba(31,191,107,.55); --t3glow:rgba(47,155,255,.55);
-  --t4glow:rgba(255,77,106,.55); --t5glow:rgba(160,107,240,.6); --t6glow:rgba(116,230,255,.7);
   --r:10px;
   --display:'Barlow Semi Condensed','Arial Narrow',sans-serif;
   --shadow:0 6px 22px rgba(0,0,0,.5);
@@ -32,10 +30,7 @@
 *{box-sizing:border-box}
 body{
   margin:0;
-  background:
-    radial-gradient(1200px 520px at 50% -8%,rgba(47,155,255,.10),transparent 60%),
-    radial-gradient(900px 500px at 50% 108%,rgba(255,194,61,.06),transparent 60%),
-    var(--bg);
+  background:var(--bg);
   color:var(--ink);
   font:500 14px/1.5 'Barlow',-apple-system,"Segoe UI",system-ui,Arial,sans-serif;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
@@ -60,13 +55,12 @@ h1{font-size:1.05em; font-weight:800; display:flex; align-items:center; gap:9px}
 
 /* TV-style score bug */
 .scoreboard{display:flex; align-items:stretch; justify-content:center; gap:0;
-  background:linear-gradient(180deg,#0b0f15,#05070b); border:1px solid var(--line2);
+  background:#080b10; border:1px solid var(--line2);
   border-radius:9px; overflow:hidden; box-shadow:var(--shadow)}
 .scoreboard .team{display:flex; align-items:center; gap:10px; padding:6px 16px; min-width:104px}
-.scoreboard .team.you{border-left:4px solid var(--you);
-  background:linear-gradient(90deg,rgba(47,155,255,.16),transparent)}
+.scoreboard .team.you{border-left:4px solid var(--you); background:rgba(47,155,255,.10)}
 .scoreboard .team.opp{border-right:4px solid var(--opp); flex-direction:row-reverse;
-  background:linear-gradient(270deg,rgba(255,77,77,.16),transparent)}
+  background:rgba(232,58,72,.10)}
 .scoreboard .label{font-family:var(--display); font-size:.78em; letter-spacing:.14em;
   font-weight:700; color:var(--ink); opacity:.85}
 .scoreboard .team #you-score,.scoreboard .team #opp-score{font-family:var(--display);
@@ -159,9 +153,9 @@ body.view-fan .slot .x{display:none}                 /* read-only roster while w
 #opp-panel{transition:box-shadow .25s, border-color .25s}
 /* possession glow: highlight the team currently on offense */
 body[data-possession="you"] #posbar{border-color:var(--you);
-  box-shadow:0 0 0 2px var(--you), 0 0 20px rgba(63,127,184,.4)}
+  box-shadow:0 0 0 2px var(--you)}
 body[data-possession="opp"] #opp-panel{border-color:var(--opp);
-  box-shadow:0 0 0 2px var(--opp), 0 0 20px rgba(192,80,63,.4)}
+  box-shadow:0 0 0 2px var(--opp)}
 body.view-fan .court{max-width:760px}                /* the court is the centerpiece */
 
 /* ---------- LEFT: your team roster ------------------------------------ */
@@ -185,9 +179,9 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 /* level bar (fills as copies are absorbed) */
 .lvlbar{position:relative; height:7px; border-radius:4px; background:#0c1017;
   border:1px solid var(--line); overflow:hidden; margin-bottom:6px}
-.lvlbar i{display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2));
+.lvlbar i{display:block; height:100%; background:var(--accent);
   transition:width .4s ease}
-.lvlbar.max i{background:linear-gradient(90deg,var(--accent2),#fff2cf)}
+.lvlbar.max i{background:var(--accent2)}
 .lvlbar .lp{position:absolute; top:-1px; right:4px; font-size:8px; font-weight:900;
   color:#fff; text-shadow:0 1px 2px #000; line-height:9px}
 
@@ -215,7 +209,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .lvl-badge{display:inline-block; font-family:var(--display); font-size:.92em; font-weight:700;
   background:var(--accent); color:#1a1206; border-radius:3px; padding:0 5px; line-height:1.5;
   vertical-align:middle}
-.lvl-badge.max{background:linear-gradient(90deg,var(--accent2),#fff2cf)}
+.lvl-badge.max{background:var(--accent2)}
 .slot .who .abil{font-size:.66em; font-weight:700; color:var(--accent); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis}
 .slot .x{background:none; border:0; padding:1px 4px; color:var(--muted); align-self:flex-start;
@@ -231,20 +225,6 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
   padding:6px 8px; font-size:.7em; display:flex; justify-content:space-between;
   flex-wrap:wrap; gap:3px}
 .st.sht{color:var(--off)} .st.def{color:var(--def)} .st.plm{color:var(--pas)} .st.ath{color:var(--stl)}
-
-/* 2K-style OVR rating badge */
-.ovr{flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  width:38px; height:38px; border-radius:9px; line-height:1;
-  background:linear-gradient(160deg,#2b3543,#161d27); border:1px solid var(--line2);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 2px 6px rgba(0,0,0,.4)}
-.ovr b{font-family:var(--display); font-size:1.2em; font-weight:700; font-variant-numeric:tabular-nums}
-.ovr small{font-family:var(--display); font-size:.5em; font-weight:700; letter-spacing:.12em;
-  color:var(--muted); margin-top:1px}
-.ovr.elite{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent),0 2px 8px rgba(255,194,61,.4)}
-.ovr.elite b{color:var(--accent2)}
-.ovr.great{border-color:var(--you)} .ovr.great b{color:#9fd0ff}
-.ovr.good b{color:var(--ink)} .ovr.base b{color:var(--muted)}
-.slot .filled .ovr{width:34px; height:34px}
 
 /* chemistry tracker */
 .chem-box{background:var(--panel); border:1px solid var(--line); border-radius:9px;
@@ -271,13 +251,11 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .court{position:relative; width:100%; max-width:680px; aspect-ratio:1/1;
   container-type:inline-size;   /* lets tokens size as a % of court width (cqw) */
   background:
-    repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 6.66%,rgba(255,255,255,.03) 6.66% 13.33%),
-    radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.10),transparent 55%),
-    linear-gradient(170deg,var(--court),var(--court2));
+    repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 6.66%,rgba(255,255,255,.02) 6.66% 13.33%),
+    var(--court);
   border-radius:14px; overflow:hidden; touch-action:none;
-  border:1px solid rgba(0,0,0,.4);
-  box-shadow:inset 0 0 0 2px rgba(0,0,0,.28), inset 0 0 70px rgba(0,0,0,.30),
-    0 10px 40px rgba(0,0,0,.55)}
+  border:1px solid rgba(0,0,0,.45);
+  box-shadow:0 8px 28px rgba(0,0,0,.45)}
 .court-lines,.trails{position:absolute; inset:0; width:100%; height:100%}
 .court-lines *{fill:none; stroke:rgba(255,255,255,.6); stroke-width:.4}
 .trails{pointer-events:none; z-index:4}
@@ -289,11 +267,11 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .hoop{position:absolute; left:50%; top:7%; transform:translate(-50%,-50%);
   z-index:5; pointer-events:none; width:38px}
 .hoop .board{width:30px; height:4px; margin:0 auto 1px; border-radius:1px;
-  background:linear-gradient(#fff,#d2d2d2); box-shadow:0 1px 3px rgba(0,0,0,.6)}
+  background:#e6e6e6; box-shadow:0 1px 3px rgba(0,0,0,.6)}
 .hoop .rim{width:17px; height:17px; margin:0 auto; border-radius:50%;
   border:3px solid #ff7a1a; background:rgba(0,0,0,.18);
   box-shadow:0 1px 4px rgba(0,0,0,.5); transition:border-color .15s, box-shadow .15s}
-.hoop.score .rim{border-color:var(--good); box-shadow:0 0 14px 4px rgba(55,204,125,.7)}
+.hoop.score .rim{border-color:var(--good)}
 
 /* Court:player ratio sized in cqw (1cqw = 1% of court width) so it stays
    constant at every court size. A real NBA player footprint is ~2.3 ft on a
@@ -302,19 +280,19 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
   user-select:none; z-index:2; transition:left .34s ease, top .34s ease}
 .token.mine{cursor:grab} .token.mine:active{cursor:grabbing}
 .token .disc{width:5cqw; height:5cqw; margin:0 auto; border-radius:50%;
-  background:radial-gradient(circle at 35% 28%,#6cc1ff,var(--you)); color:#04243f;
+  background:var(--you); color:#04243f;
   display:flex; align-items:center; justify-content:center; font-weight:900;
-  border:0.34cqw solid #fff; box-shadow:0 2px 5px rgba(0,0,0,.55); position:relative;
+  border:0.34cqw solid #fff; box-shadow:0 2px 4px rgba(0,0,0,.5); position:relative;
   font-family:var(--display); font-size:2.1cqw; letter-spacing:.2px;
   transition:transform .15s, box-shadow .15s}
-.token.opp .disc{background:radial-gradient(circle at 35% 28%,#ff8f8f,var(--opp)); color:#3a0808}
+.token.opp .disc{background:var(--opp); color:#3a0808}
 .token .lvl{position:absolute; top:-0.8cqw; right:-1cqw; background:var(--accent); color:#1a1206;
   font-size:1.5cqw; font-weight:800; border-radius:50%; width:2.7cqw; height:2.7cqw;
   display:flex; align-items:center; justify-content:center}
 .token .nm{font-family:var(--display);
   font-size:clamp(7px,2.35cqw,13px); margin-top:0.4cqw; color:#fff; font-weight:700; letter-spacing:.3px;
   text-transform:uppercase;
-  text-shadow:0 1px 2px rgba(0,0,0,.95),0 0 4px rgba(0,0,0,.6);
+  text-shadow:0 1px 2px rgba(0,0,0,.95);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .token .nm b{color:var(--accent2)}
 .token.act{z-index:3}
@@ -323,7 +301,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .token.dragging{transition:none; z-index:6}
 .token.release-zone{opacity:.5}
 .token.release-zone .disc{border-color:var(--opp);
-  box-shadow:0 0 0 3px var(--opp), 0 0 12px 2px rgba(239,95,87,.7); filter:grayscale(.4)}
+  box-shadow:0 0 0 3px var(--opp); filter:grayscale(.4)}
 .token.conflict{z-index:4}
 .token.conflict .disc{border-color:#ff3b30; box-shadow:0 0 0 4px #ff3b30; animation:pulse .8s infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(255,59,48,.7)}}
@@ -331,7 +309,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .ball{position:absolute; width:2.7cqw; height:2.7cqw; min-width:9px; min-height:9px;
   transform:translate(-50%,-50%);
   border-radius:50%; z-index:6; pointer-events:none;
-  background:radial-gradient(circle at 35% 30%,#ffc078,#e8782a 65%,#bd5a18);
+  background:#e8782a;
   border:1px solid #6e3310; box-shadow:0 1px 5px rgba(0,0,0,.6);
   transition:left .24s ease, top .24s ease, transform .2s}
 .ball::before{content:""; position:absolute; left:50%; top:0; bottom:0; width:1px;
@@ -415,8 +393,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .cap-pill{background:var(--panel2); border:1px solid var(--line); border-radius:8px;
   padding:6px 15px; font-family:var(--display); font-size:.92em; font-weight:600;
   letter-spacing:.06em; color:var(--muted)}
-.cap-pill b{color:var(--money); font-size:1.6em; margin-left:6px;
-  text-shadow:0 0 12px rgba(39,224,122,.35)}      /* bankroll reads as money */
+.cap-pill b{color:var(--money); font-size:1.6em; margin-left:6px}
 .controls{display:flex; gap:8px; align-items:center}
 button{background:var(--panel2); color:var(--ink); border:1px solid var(--line2);
   padding:9px 15px; border-radius:6px; cursor:pointer; font-weight:700;
@@ -442,14 +419,11 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .card.frozen{border-color:var(--you); box-shadow:0 0 0 1px var(--you)}
 .card.frozen .freeze{color:#fff; background:var(--you); border-color:var(--you)}
 .card:hover{transform:translateY(-3px); box-shadow:var(--shadow); border-color:var(--line2)}
-/* 2K MyTeam gem rarity: colored top frame + a tier-matched glow */
+/* tier rarity: a flat colored top frame (no glow) */
 .card{border-top-width:4px}
-.card.t1{border-top-color:var(--t1); box-shadow:0 -3px 16px -8px var(--t1glow)}
-.card.t2{border-top-color:var(--t2); box-shadow:0 -3px 16px -8px var(--t2glow)}
-.card.t3{border-top-color:var(--t3); box-shadow:0 -3px 16px -8px var(--t3glow)}
-.card.t4{border-top-color:var(--t4); box-shadow:0 -3px 16px -8px var(--t4glow)}
-.card.t5{border-top-color:var(--t5); box-shadow:0 -3px 18px -7px var(--t5glow)}
-.card.t6{border-top-color:var(--t6); box-shadow:0 -4px 22px -6px var(--t6glow)}
+.card.t1{border-top-color:var(--t1)} .card.t2{border-top-color:var(--t2)}
+.card.t3{border-top-color:var(--t3)} .card.t4{border-top-color:var(--t4)}
+.card.t5{border-top-color:var(--t5)} .card.t6{border-top-color:var(--t6)}
 .card.sold{opacity:.3; pointer-events:none; display:flex; align-items:center; justify-content:center;
   min-height:120px; font-style:italic; color:var(--muted)}
 .card .chead{display:flex; align-items:center; gap:8px; margin-bottom:8px}
@@ -526,7 +500,7 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 @media(max-width:640px){
   header{position:sticky; top:0; z-index:15; grid-template-columns:1fr;
     gap:4px; padding:7px 12px 8px; text-align:center;
-    background:linear-gradient(180deg,#161c27,#0f131b)}
+    background:var(--bg2)}
   h1{font-size:.94em; justify-content:center}
   .goal{display:none}
   .phase-nav{margin-top:5px}
