@@ -87,9 +87,9 @@ ARCH_ABILITIES = {
                       ("interceptor", 2, 2), ("ball_stopper", 1, 1), ("shot_blocker", 3, 1)],
 }
 
-TIER_BUDGET = {1: 16, 2: 20, 3: 24, 4: 28, 5: 32, 6: 36}  # total stat points, +/- noise
-TIER_CAP = {1: 7, 2: 9, 3: 11, 4: 13, 5: 15, 6: 17}       # per-stat cap by tier
-TIER_COUNTS = {1:30 , 2:27 , 3: 23, 4: 17, 5: 14, 6: 9}   # pyramid -> 120
+TIER_BUDGET = {1: 20, 2: 25, 3: 30, 4: 35, 5: 40, 6: 45, 7: 50}  # total stat points, +/- noise
+TIER_CAP = {1: 8, 2: 11, 3: 12, 4: 15, 5: 16, 6: 20, 7: 25}       # per-stat cap by tier
+TIER_COUNTS = {1: 55 , 2: 40 , 3: 35, 4: 25, 5: 20, 6: 15, 7: 10}   # pyramid (Tier 7 = Legends)
 
 # marquee names kept for continuity (stats regenerated, ability fixed);
 # the legends now anchor the new top tier (6)
@@ -146,7 +146,7 @@ for (nm, arch, tier, ab) in FORCED:
 
 # 2) fill the remaining slots per tier, round-robin over all archetypes so the
 #    low tiers cover every position
-for tier in (1, 2, 3, 4, 5, 6):
+for tier in (1, 2, 3, 4, 5, 6, 7):
     fill = TIER_COUNTS[tier] - forced_per_tier[tier]
     for i in range(fill):
         arch = ARCHS[i % len(ARCHS)]
@@ -154,7 +154,7 @@ for tier in (1, 2, 3, 4, 5, 6):
         st = gen_stats(arch, tier)
         entries.append((nm, arch, tier, st["sht"], st["dfn"], st["plm"], st["ath"], ab))
 
-assert len(entries) == 120, len(entries)
+assert len(entries) == sum(TIER_COUNTS.values()), len(entries)
 # every position must be fieldable from Tier 1 (random_team relies on it)
 from collections import defaultdict
 ARCH_POS = {  # mirror sim.ARCHETYPE_POSITIONS for the check

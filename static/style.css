@@ -8,7 +8,10 @@
 /* Barlow + Barlow Semi Condensed: sturdy athletic faces (SIL OFL, free/legal),
    heavier than the old Oswald/native stack so nothing reads thin. Body sits at
    weight 500 by default. */
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=Orbitron:wght@700;800;900&display=swap');
+/* DSEG7 = the classic 7-segment digital-scoreboard face (OFL, via jsDelivr).
+   Falls back to Orbitron (LED/digital style) then a monospace if the CDN is blocked. */
+@import url('https://cdn.jsdelivr.net/npm/@fontsource/dseg7-classic/index.css');
 :root{
   /* Broadcast palette fusing ESPN gamecast + DraftKings sportsbook + 2K MyTeam.
      Near-black arena, slate panels, electric team colors. "Money green" is
@@ -21,10 +24,12 @@
   --accent:#ffc23d; --accent2:#ffd874; --accentink:#1a1206;
   /* stat colors: SHT shooting · DEF defense · PLM playmaking · ATH athleticism */
   --off:#ff7a3d; --def:#2f9bff; --pas:#27e07a; --stl:#ffc23d;
-  /* tier accents (Rookie→HOF) — flat colored edges, no glow */
+  /* tier accents (Rookie→Legend) — flat colored edges, no glow */
   --t1:#c79a3a; --t2:#1fbf6b; --t3:#2f9bff; --t4:#ff4d6a; --t5:#a06bf0; --t6:#74e6ff;
+  --t7:#ff8a1f;   /* Tier 7 "Legend" — a distinct radiant gold-orange */
   --r:10px;
   --display:'Barlow Semi Condensed','Arial Narrow',sans-serif;
+  --score:'DSEG7 Classic','Orbitron',ui-monospace,'Courier New',monospace;
   --shadow:0 6px 22px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box}
@@ -63,9 +68,9 @@ h1{font-size:1.05em; font-weight:800; display:flex; align-items:center; gap:9px}
   background:rgba(232,58,72,.10)}
 .scoreboard .label{font-family:var(--display); font-size:.78em; letter-spacing:.14em;
   font-weight:700; color:var(--ink); opacity:.85}
-.scoreboard .team #you-score,.scoreboard .team #opp-score{font-family:var(--display);
-  font-size:2.3em; font-weight:700; line-height:1; font-variant-numeric:tabular-nums;
-  display:inline-block; text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.scoreboard .team #you-score,.scoreboard .team #opp-score{font-family:var(--score);
+  font-size:2em; font-weight:700; line-height:1; font-variant-numeric:tabular-nums;
+  display:inline-block}
 #you-score.pop,#opp-score.pop{animation:scorepop .43s ease-out}
 @keyframes scorepop{0%{transform:scale(1)}35%{transform:scale(1.5)}100%{transform:scale(1)}}
 .team.you #you-score{color:var(--you)} .team.opp #opp-score{color:var(--opp)}
@@ -75,7 +80,7 @@ h1{font-size:1.05em; font-weight:800; display:flex; align-items:center; gap:9px}
 #phase-label{font-size:.74em}
 #record{font-family:var(--display); font-weight:700; font-variant-numeric:tabular-nums;
   color:var(--accent); font-size:.9em; letter-spacing:.04em}
-.clock{font-family:var(--display),ui-monospace,monospace; font-weight:700; font-size:1.45em;
+.clock{font-family:var(--score); font-weight:700; font-size:1.3em;
   line-height:1.1; color:var(--ink); letter-spacing:.05em; margin-top:2px;
   font-variant-numeric:tabular-nums}
 .poss-left{font-size:.58em; color:var(--muted); font-weight:700; letter-spacing:.05em;
@@ -175,6 +180,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .slot.t1{border-left-color:var(--t1)} .slot.t2{border-left-color:var(--t2)}
 .slot.t3{border-left-color:var(--t3)} .slot.t4{border-left-color:var(--t4)}
 .slot.t5{border-left-color:var(--t5)} .slot.t6{border-left-color:var(--t6)}
+.slot.t7{border-left-color:var(--t7)}
 
 /* level bar (fills as copies are absorbed) */
 .lvlbar{position:relative; height:7px; border-radius:4px; background:#0c1017;
@@ -424,6 +430,7 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .card.t1{border-top-color:var(--t1)} .card.t2{border-top-color:var(--t2)}
 .card.t3{border-top-color:var(--t3)} .card.t4{border-top-color:var(--t4)}
 .card.t5{border-top-color:var(--t5)} .card.t6{border-top-color:var(--t6)}
+.card.t7{border-top-color:var(--t7)}
 .card.sold{opacity:.3; pointer-events:none; display:flex; align-items:center; justify-content:center;
   min-height:120px; font-style:italic; color:var(--muted)}
 .card .chead{display:flex; align-items:center; gap:8px; margin-bottom:8px}
@@ -436,7 +443,7 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .slot .pos .tier{float:right; font-size:.92em}
 .tier.t1{background:var(--t1)} .tier.t2{background:var(--t2)}
 .tier.t3{background:var(--t3)} .tier.t4{background:var(--t4)}
-.tier.t5{background:var(--t5)} .tier.t6{background:var(--t6)}
+.tier.t5{background:var(--t5)} .tier.t6{background:var(--t6)} .tier.t7{background:var(--t7)}
 .card .cfoot{display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:8px}
 .card .abil{font-size:.7em; font-weight:800; color:var(--accent); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis}
@@ -459,6 +466,7 @@ button:disabled{opacity:.4; cursor:not-allowed; filter:none}
 .pcard.t1{border-top-color:var(--t1)} .pcard.t2{border-top-color:var(--t2)}
 .pcard.t3{border-top-color:var(--t3)} .pcard.t4{border-top-color:var(--t4)}
 .pcard.t5{border-top-color:var(--t5)} .pcard.t6{border-top-color:var(--t6)}
+.pcard.t7{border-top-color:var(--t7)}
 .pc-head{display:flex; align-items:flex-start; gap:10px; margin-bottom:12px}
 .pc-id{flex:1; min-width:0}
 .pc-id h2{margin:0; font-size:1.15em}

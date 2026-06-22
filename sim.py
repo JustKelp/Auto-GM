@@ -29,8 +29,8 @@ POSSESSIONS_PER_SIDE = 7
 FINALS_POSSESSIONS = 15   # the Finals runs longer — less variance, better team wins
 LINEUP_SIZE = 5
 SHOP_SIZE = 5
-STARTING_CAP = 20
-CAP_PER_ROUND = 10
+STARTING_CAP = 17
+CAP_PER_ROUND = 8
 REROLL_COST = 2
 WINS_TO_FINISH = 12       # wins that clinch a Finals berth (championship run)
 LOSSES_TO_BUST = 4        # losses that eliminate you
@@ -523,13 +523,14 @@ def _apply_chemistry(team):
 # weaker archetypes and stats; climbing the ladder unlocks new archetypes and
 # stronger players. Price is flat across tiers for now (cost lives in ARCHETYPES).
 # ---------------------------------------------------------------------------
-MAX_TIER = 6
-# tiers unlock by GAMES PLAYED (wins + losses), not wins — everyone progresses
-TIER_UNLOCK_GAMES = {1: 0, 2: 2, 3: 4, 4: 6, 5: 8, 6: 10}
+MAX_TIER = 7
+# tiers unlock by GAMES PLAYED (wins + losses), not wins — everyone progresses.
+# Tier 7 (the "Legend" tier) unlocks deep into the 12-win championship run.
+TIER_UNLOCK_GAMES = {1: 0, 2: 2, 3: 4, 4: 6, 5: 8, 6: 10, 7: 12}
 
 # Price by tier (was a flat 3). Higher tiers cost more, so signing a legend is a
 # real spend decision you may have to bank toward. Overrides the archetype cost.
-TIER_PRICE = {1: 3, 2: 3, 3: 4, 4: 4, 5: 5, 6: 5}
+TIER_PRICE = {1: 3, 2: 3, 3: 4, 4: 4, 5: 5, 6: 5, 7: 6}
 
 
 def tier_price(tier):
@@ -555,7 +556,8 @@ def next_unlock(games):
 
 
 def tier_ceiling_for_round(round_no):
-    """How strong a random opponent may be: the top tier it can field."""
+    """How strong a random opponent may be: the top tier it can field. Bumped up
+    a notch for the deeper 12-win run, topping out at the new Tier 7 late."""
     if round_no <= 2:
         return 1
     if round_no <= 4:
@@ -566,7 +568,9 @@ def tier_ceiling_for_round(round_no):
         return 4
     if round_no <= 10:
         return 5
-    return 6
+    if round_no <= 12:
+        return 6
+    return 7
 
 
 # Preset, PERSISTENT player pool. A name always maps to the same archetype and
@@ -578,131 +582,212 @@ def tier_ceiling_for_round(round_no):
 #   shown ratings the sim reads directly — NOT off/dfn/pas/stl; see gen_pool.py).
 _POOL_RAW = [
     # --- Tier 1 ---
-    ('Jett Fields', 'Scoring PG', 1, 4, 3, 5, 2, 'soft_touch'),
-    ('Trevor Tate', 'Scoring PG', 1, 5, 5, 3, 2, 'handles'),
-    ('Dee Ward', 'Slashing SF', 1, 4, 7, 3, 5, 'iso_threat'),
-    ('Tyler Pavlov', 'Slashing SF', 1, 3, 5, 2, 6, 'iso_threat'),
-    ('Dalton Walker', 'Shooting SF', 1, 7, 7, 3, 2, 'deadeye'),
-    ('Mark Vance', 'Shooting SF', 1, 6, 4, 3, 2, 'deadeye'),
-    ('Jimmy Cook', 'Rim-Run Big', 1, 2, 7, 3, 6, 'soft_touch'),
-    ('Kai Robinson', 'Rim-Run Big', 1, 2, 7, 2, 6, 'rim_protector'),
-    ('Julian Adams', 'Pass-First PG', 1, 2, 7, 6, 2, 'on_ball_menace'),
-    ('Keenan Underwood', 'Pass-First PG', 1, 2, 5, 6, 2, 'tempo_control'),
-    ('Mike Fletcher', 'Pass-First PG', 1, 3, 5, 7, 2, 'tempo_control'),
-    ('Caleb Mraz', 'Lockdown Wing', 1, 2, 7, 2, 2, 'pickpocket'),
-    ('Zane Barnes', 'Lockdown Wing', 1, 2, 7, 2, 2, 'on_ball_menace'),
-    ('Christian Bryant', '3&D Wing', 1, 3, 7, 3, 2, 'corner_spec'),
-    ('Xavier Garcia', '3&D Wing', 1, 5, 7, 2, 2, 'catch_shoot'),
-    ('Keenan Garcia', 'Stretch 4', 1, 7, 5, 2, 2, 'catch_shoot'),
-    ('Omar Long', 'Stretch 4', 1, 6, 7, 2, 2, 'soft_touch'),
-    ('Solomon Dawson', 'Point Forward', 1, 3, 5, 6, 2, 'tempo_control'),
-    ('Tyrell Miller', 'Point Forward', 1, 2, 6, 5, 2, 'iso_threat'),
-    ('Jabari Cook', 'Screening Big', 1, 2, 7, 4, 2, 'on_ball_menace'),
-    ('Julian Murphy', 'Screening Big', 1, 2, 7, 2, 2, 'rim_protector'),
-    ('Jarrett Campbell', 'Combo Guard', 1, 4, 5, 4, 2, 'iso_threat'),
-    ('Tyrell Wells', 'Combo Guard', 1, 5, 5, 5, 2, 'deadeye'),
-    ('Aaron Johnson', 'Sharpshooter', 1, 7, 6, 2, 2, 'deadeye'),
-    ('Tyrell Washington', 'Sharpshooter', 1, 7, 7, 2, 2, 'deadeye'),
-    ('Jabari Flowers', 'Two-Way Forward', 1, 2, 7, 2, 3, 'soft_touch'),
-    ('Theo Thomas', 'Two-Way Forward', 1, 2, 7, 2, 4, 'eurostep'),
-    ('Trent Riley', 'Stretch Center', 1, 5, 7, 4, 3, 'deadeye'),
-    ('Isaiah Riley', 'Post Scorer', 1, 3, 5, 2, 6, 'ball_stopper'),
-    ('Greg Novak', 'Defensive Anchor', 1, 2, 7, 4, 2, 'shot_blocker'),
+    ('Dominic Vance', 'Scoring PG', 1, 8, 6, 4, 2, 'iso_threat'),
+    ('Jake Reed', 'Scoring PG', 1, 7, 6, 6, 2, 'soft_touch'),
+    ('Ryan Burns', 'Scoring PG', 1, 7, 6, 4, 2, 'handles'),
+    ('Tobias Tate', 'Scoring PG', 1, 7, 4, 5, 3, 'iso_threat'),
+    ('Aaron Pike', 'Slashing SF', 1, 4, 7, 2, 5, 'turnover_prone'),
+    ('Davon Murray', 'Slashing SF', 1, 3, 6, 4, 6, 'iso_threat'),
+    ('Noah Yates', 'Slashing SF', 1, 5, 8, 2, 7, 'eurostep'),
+    ('Terry Ortega', 'Slashing SF', 1, 5, 7, 3, 7, 'soft_touch'),
+    ('Lamar Flowers', 'Shooting SF', 1, 8, 8, 2, 2, 'deadeye'),
+    ('Landon Frazier', 'Shooting SF', 1, 8, 6, 3, 3, 'deadeye'),
+    ('Sam Mraz', 'Shooting SF', 1, 8, 6, 2, 2, 'catch_shoot'),
+    ('Tobias Walker', 'Shooting SF', 1, 8, 7, 4, 2, 'catch_shoot'),
+    ('Aaron Fisher', 'Rim-Run Big', 1, 2, 8, 3, 7, 'rim_protector'),
+    ('Caleb Green', 'Rim-Run Big', 1, 2, 8, 2, 6, 'putback'),
+    ('Cooper Fisher', 'Rim-Run Big', 1, 2, 7, 3, 8, 'lob_threat'),
+    ('Keon Reyes', 'Rim-Run Big', 1, 3, 8, 2, 8, 'soft_touch'),
+    ('Adrian Ward', 'Pass-First PG', 1, 2, 7, 8, 2, 'on_ball_menace'),
+    ('Mike Fletcher', 'Pass-First PG', 1, 3, 7, 8, 2, 'tempo_control'),
+    ('Sam Zima', 'Pass-First PG', 1, 4, 8, 8, 2, 'floor_general'),
+    ('Silas Howard', 'Pass-First PG', 1, 3, 8, 8, 2, 'tempo_control'),
+    ('Terry Hill', 'Pass-First PG', 1, 3, 8, 8, 2, 'tempo_control'),
+    ('Carson Davis', 'Lockdown Wing', 1, 3, 8, 4, 2, 'on_ball_menace'),
+    ('Kareem Dawson', 'Lockdown Wing', 1, 2, 8, 4, 2, 'on_ball_menace'),
+    ('Nash Price', 'Lockdown Wing', 1, 3, 8, 3, 2, 'on_ball_menace'),
+    ('Xavier Harris', 'Lockdown Wing', 1, 2, 8, 3, 2, 'on_ball_menace'),
+    ('Donovan Long', '3&D Wing', 1, 5, 8, 2, 2, 'catch_shoot'),
+    ('Hunter Warner', '3&D Wing', 1, 4, 8, 3, 2, 'deadeye'),
+    ('Trent Stone', '3&D Wing', 1, 6, 8, 4, 2, 'catch_shoot'),
+    ('Cooper Shaw', 'Stretch 4', 1, 8, 8, 4, 2, 'deadeye'),
+    ('Jake Mills', 'Stretch 4', 1, 7, 8, 4, 2, 'deadeye'),
+    ('Tariq Rice', 'Stretch 4', 1, 7, 7, 3, 2, 'catch_shoot'),
+    ('Garrett Coleman', 'Point Forward', 1, 4, 6, 8, 3, 'iso_threat'),
+    ('Jaden Booker', 'Point Forward', 1, 3, 5, 8, 3, 'floor_general'),
+    ('Jose Jones', 'Point Forward', 1, 6, 6, 7, 4, 'handles'),
+    ('Jabari Sims', 'Screening Big', 1, 2, 8, 4, 5, 'rim_protector'),
+    ('Mark Udeze', 'Screening Big', 1, 2, 8, 4, 3, 'on_ball_menace'),
+    ('Wes Taylor', 'Screening Big', 1, 2, 8, 4, 4, 'shot_blocker'),
+    ('Dante Mathis', 'Combo Guard', 1, 8, 5, 6, 2, 'handles'),
+    ('Landon Novak', 'Combo Guard', 1, 7, 6, 6, 3, 'handles'),
+    ('Rome Simmons', 'Combo Guard', 1, 7, 6, 6, 2, 'deadeye'),
+    ('Darius Washington', 'Sharpshooter', 1, 8, 8, 3, 2, 'quick_release'),
+    ('Dawson Diallo', 'Sharpshooter', 1, 8, 8, 3, 2, 'corner_spec'),
+    ('Marcus Wright', 'Sharpshooter', 1, 8, 7, 3, 3, 'quick_release'),
+    ('Bradley Parker', 'Two-Way Forward', 1, 4, 8, 4, 3, 'on_ball_menace'),
+    ('Dawson Jenkins', 'Two-Way Forward', 1, 3, 8, 4, 3, 'soft_touch'),
+    ('Tobias Nelson', 'Two-Way Forward', 1, 4, 8, 4, 5, 'on_ball_menace'),
+    ('Jack Ingram', 'Stretch Center', 1, 7, 7, 2, 2, 'catch_shoot'),
+    ('Josh Sefu', 'Stretch Center', 1, 8, 8, 4, 3, 'catch_shoot'),
+    ('Trevor Jenkins', 'Stretch Center', 1, 8, 8, 3, 2, 'rim_protector'),
+    ('Devon Jenkins', 'Post Scorer', 1, 3, 7, 2, 6, 'ball_stopper'),
+    ('Micah Locke', 'Post Scorer', 1, 5, 8, 2, 8, 'soft_touch'),
+    ('Rell Porter', 'Post Scorer', 1, 4, 7, 3, 7, 'soft_touch'),
+    ('Flynn Frazier', 'Defensive Anchor', 1, 2, 8, 3, 2, 'shot_blocker'),
+    ('Landon Marsh', 'Defensive Anchor', 1, 2, 8, 2, 3, 'shot_blocker'),
+    ('Quinn Hill', 'Defensive Anchor', 1, 2, 8, 4, 2, 'on_ball_menace'),
     # --- Tier 2 ---
-    ('Jack Allen', 'Scoring PG', 2, 8, 6, 5, 3, 'soft_touch'),
-    ('Jackson Carter', 'Scoring PG', 2, 8, 6, 5, 2, 'streaky'),
-    ('Jimmy Owens', 'Slashing SF', 2, 4, 6, 4, 6, 'soft_touch'),
-    ('Knox Ellis', 'Slashing SF', 2, 5, 9, 2, 6, 'eurostep'),
-    ('Cooper Carter', 'Shooting SF', 2, 9, 8, 3, 3, 'corner_spec'),
-    ('Hollis Wallace', 'Shooting SF', 2, 9, 7, 3, 2, 'limitless'),
-    ('Jarrett Pike', 'Rim-Run Big', 2, 3, 9, 2, 8, 'rim_protector'),
-    ('Landon Dixon', 'Rim-Run Big', 2, 2, 9, 2, 8, 'soft_touch'),
-    ('Davon Payne', 'Pass-First PG', 2, 2, 9, 9, 2, 'floor_general'),
-    ('Tyrese Lindqvist', 'Pass-First PG', 2, 3, 9, 8, 2, 'floor_general'),
-    ('Omar Mensah', 'Lockdown Wing', 2, 2, 9, 4, 2, 'interceptor'),
-    ('Tyrese Gray', 'Lockdown Wing', 2, 3, 9, 3, 2, 'interceptor'),
-    ('Greg Long', '3&D Wing', 2, 6, 9, 3, 2, 'catch_shoot'),
-    ('Malik Edwards', '3&D Wing', 2, 4, 9, 2, 2, 'quick_release'),
-    ('Devin Banks', 'Stretch 4', 2, 8, 8, 3, 2, 'limitless'),
-    ('Enzo Mack', 'Stretch 4', 2, 9, 7, 3, 2, 'deadeye'),
-    ('Austin Perry', 'Point Forward', 2, 5, 5, 7, 2, 'handles'),
-    ('Drew Butler', 'Point Forward', 2, 4, 8, 7, 4, 'mentor'),
-    ('Desmond Morgan', 'Screening Big', 2, 2, 9, 2, 3, 'interceptor'),
-    ('Will Brown', 'Screening Big', 2, 2, 9, 3, 4, 'shot_blocker'),
-    ('Quincy Mack', 'Combo Guard', 2, 6, 5, 6, 2, 'streaky'),
-    ('Vince Gray', 'Combo Guard', 2, 7, 5, 5, 2, 'iso_threat'),
-    ('Reggie Franklin', 'Sharpshooter', 2, 9, 8, 4, 2, 'catch_shoot'),
-    ('Quentin Jones', 'Two-Way Forward', 2, 4, 9, 4, 3, 'on_ball_menace'),
-    ('Grady Powell', 'Stretch Center', 2, 7, 8, 2, 3, 'catch_shoot'),
-    ('Mark Gordon', 'Post Scorer', 2, 4, 5, 4, 7, 'ball_stopper'),
-    ('Ronnie Reed', 'Defensive Anchor', 2, 2, 9, 2, 3, 'interceptor'),
+    ('Bradley Turner', 'Scoring PG', 2, 11, 7, 7, 4, 'soft_touch'),
+    ('Trevor Cook', 'Scoring PG', 2, 8, 6, 6, 2, 'limitless'),
+    ('Zeke Simmons', 'Scoring PG', 2, 9, 5, 7, 2, 'heat_check'),
+    ('Alec Shaw', 'Slashing SF', 2, 5, 10, 4, 8, 'iso_threat'),
+    ('Dalton Voss', 'Slashing SF', 2, 5, 11, 4, 7, 'soft_touch'),
+    ('Jett Griffin', 'Slashing SF', 2, 5, 9, 2, 8, 'killer_cross'),
+    ('Cam Holt', 'Shooting SF', 2, 10, 9, 4, 3, 'limitless'),
+    ('Kobi Norman', 'Shooting SF', 2, 11, 9, 4, 2, 'catch_shoot'),
+    ('Mike Washington', 'Shooting SF', 2, 10, 9, 2, 2, 'deadeye'),
+    ('Desmond Ward', 'Rim-Run Big', 2, 3, 11, 2, 9, 'putback'),
+    ('Landon Pike', 'Rim-Run Big', 2, 2, 9, 3, 9, 'ball_stopper'),
+    ('Will Lane', 'Rim-Run Big', 2, 3, 10, 2, 10, 'putback'),
+    ('Corey Watson', 'Pass-First PG', 2, 4, 11, 11, 2, 'handles'),
+    ('Damon Morris', 'Pass-First PG', 2, 2, 11, 11, 2, 'pickpocket'),
+    ('Dillon Parker', 'Pass-First PG', 2, 2, 11, 11, 2, 'pickpocket'),
+    ('Carson Johnson', 'Lockdown Wing', 2, 2, 11, 4, 2, 'lockdown'),
+    ('Emmanuel Udeze', 'Lockdown Wing', 2, 2, 11, 3, 2, 'pickpocket'),
+    ('Sam Washington', 'Lockdown Wing', 2, 2, 11, 5, 2, 'on_ball_menace'),
+    ('Bradley Kemp', '3&D Wing', 2, 8, 11, 3, 3, 'quick_release'),
+    ('Finn Brooks', '3&D Wing', 2, 7, 11, 3, 2, 'quick_release'),
+    ('Theo Hall', '3&D Wing', 2, 8, 11, 4, 3, 'catch_shoot'),
+    ('Harrison Crawford', 'Stretch 4', 2, 9, 9, 3, 3, 'catch_shoot'),
+    ('Jacoby Peters', 'Stretch 4', 2, 11, 11, 4, 2, 'limitless'),
+    ('Pax Collins', 'Stretch 4', 2, 11, 9, 5, 2, 'soft_touch'),
+    ('Gabe Gordon', 'Point Forward', 2, 5, 7, 10, 2, 'handles'),
+    ('Quentin Williams', 'Point Forward', 2, 6, 7, 10, 3, 'mentor'),
+    ('Jimmy Whitlock', 'Screening Big', 2, 2, 11, 4, 5, 'ball_stopper'),
+    ('Zeke Voss', 'Screening Big', 2, 2, 11, 4, 6, 'shot_blocker'),
+    ('Jack Greer', 'Combo Guard', 2, 8, 8, 6, 2, 'handles'),
+    ('Rome Roberts', 'Combo Guard', 2, 8, 7, 5, 4, 'heat_check'),
+    ('Devon Mathis', 'Sharpshooter', 2, 11, 9, 5, 2, 'quick_release'),
+    ('Quinn Tate', 'Sharpshooter', 2, 9, 7, 3, 2, 'deadeye'),
+    ('Jared Brown', 'Two-Way Forward', 2, 3, 11, 3, 6, 'eurostep'),
+    ('Rell Shaw', 'Two-Way Forward', 2, 4, 11, 3, 6, 'eurostep'),
+    ('Jeremiah Green', 'Stretch Center', 2, 9, 11, 5, 3, 'limitless'),
+    ('Noah Watson', 'Stretch Center', 2, 9, 8, 2, 2, 'catch_shoot'),
+    ('Cam Gordon', 'Post Scorer', 2, 3, 9, 3, 7, 'ball_stopper'),
+    ('Dante Taylor', 'Post Scorer', 2, 4, 10, 5, 9, 'soft_touch'),
+    ('Isaac Sims', 'Defensive Anchor', 2, 2, 11, 3, 2, 'shot_blocker'),
+    ('Travis Turner', 'Defensive Anchor', 2, 2, 11, 5, 4, 'ball_stopper'),
     # --- Tier 3 ---
-    ('Dante Carter', 'Scoring PG', 3, 7, 6, 5, 2, 'star_power'),
-    ('Wes Diallo', 'Scoring PG', 3, 9, 6, 5, 4, 'fan_favorite'),
-    ('Jaylon Dixon', 'Slashing SF', 3, 5, 10, 3, 8, 'eurostep'),
-    ('Keon Mills', 'Slashing SF', 3, 6, 9, 4, 8, 'soft_touch'),
-    ('Rell Baker', 'Shooting SF', 3, 9, 8, 3, 3, 'deadeye'),
-    ('Silas Rhodes', 'Shooting SF', 3, 11, 9, 5, 2, 'catch_shoot'),
-    ('Dawson Reyes', 'Rim-Run Big', 3, 2, 11, 3, 8, 'lob_threat'),
-    ('Joel Woods', 'Rim-Run Big', 3, 3, 10, 2, 8, 'lob_threat'),
-    ('Devin Hamilton', 'Pass-First PG', 3, 3, 11, 11, 2, 'mentor'),
-    ('Nico Griffin', 'Pass-First PG', 3, 4, 9, 10, 2, 'floor_general'),
-    ('Dillon Moore', 'Lockdown Wing', 3, 3, 11, 3, 2, 'lockdown'),
-    ('Isaac Cruz', 'Lockdown Wing', 3, 4, 11, 3, 2, 'interceptor'),
-    ('Devin Fox', '3&D Wing', 3, 5, 11, 4, 2, 'lockdown'),
-    ('Juju Patterson', '3&D Wing', 3, 5, 11, 4, 2, 'on_ball_menace'),
-    ('Otis Kemp', 'Stretch 4', 3, 9, 8, 3, 2, 'soft_touch'),
-    ('Terry Fields', 'Point Forward', 3, 6, 8, 9, 2, 'mentor'),
-    ('Aaron Foster', 'Screening Big', 3, 2, 11, 5, 4, 'rim_protector'),
-    ('Lamar Cook', 'Combo Guard', 3, 9, 8, 7, 4, 'deadeye'),
-    ('Otis Robinson', 'Sharpshooter', 3, 10, 7, 4, 2, 'catch_shoot'),
-    ('Dominic Cunningham', 'Two-Way Forward', 3, 4, 11, 2, 5, 'eurostep'),
-    ('Adrian Salas', 'Stretch Center', 3, 6, 8, 2, 2, 'deadeye'),
-    ('Jax Riley', 'Post Scorer', 3, 4, 10, 4, 9, 'putback'),
-    ('Pax Howard', 'Defensive Anchor', 3, 2, 11, 4, 2, 'rim_protector'),
+    ('Brandon Henderson', 'Scoring PG', 3, 10, 8, 6, 2, 'turnover_prone'),
+    ('Donovan Brown', 'Scoring PG', 3, 12, 6, 6, 3, 'turnover_prone'),
+    ('Mateo Marsh', 'Scoring PG', 3, 12, 7, 8, 5, 'soft_touch'),
+    ('Greg Tran', 'Slashing SF', 3, 7, 12, 6, 9, 'soft_touch'),
+    ('Otis Sanders', 'Slashing SF', 3, 7, 10, 4, 9, 'eurostep'),
+    ('Tobias Cruz', 'Slashing SF', 3, 6, 11, 5, 10, 'iso_threat'),
+    ('Alec Mraz', 'Shooting SF', 3, 12, 9, 5, 2, 'limitless'),
+    ('Vince Rogers', 'Shooting SF', 3, 12, 10, 3, 3, 'deadeye'),
+    ('Xavier Rivera', 'Shooting SF', 3, 12, 11, 5, 4, 'deadeye'),
+    ('Devon Murphy', 'Rim-Run Big', 3, 3, 12, 2, 10, 'putback'),
+    ('Ryan Cruz', 'Rim-Run Big', 3, 2, 12, 4, 12, 'lob_threat'),
+    ('Aaron Foster', 'Pass-First PG', 3, 3, 11, 12, 2, 'handles'),
+    ('Logan Graham', 'Pass-First PG', 3, 4, 12, 12, 2, 'dimer'),
+    ('Aaron King', 'Lockdown Wing', 3, 4, 12, 4, 2, 'pickpocket'),
+    ('Darius Lane', 'Lockdown Wing', 3, 4, 12, 4, 2, 'lockdown'),
+    ('Jett Foster', '3&D Wing', 3, 9, 12, 4, 3, 'corner_spec'),
+    ('Lamar Freeman', '3&D Wing', 3, 7, 12, 4, 2, 'deadeye'),
+    ('Amari Mack', 'Stretch 4', 3, 12, 11, 5, 2, 'catch_shoot'),
+    ('Ryan Tate', 'Stretch 4', 3, 11, 9, 4, 3, 'soft_touch'),
+    ('Hunter Glenn', 'Point Forward', 3, 7, 10, 9, 3, 'handles'),
+    ('Kobi Lane', 'Point Forward', 3, 7, 10, 12, 3, 'dimer'),
+    ('Aaron Wallace', 'Screening Big', 3, 2, 12, 5, 5, 'on_ball_menace'),
+    ('Dominic Wright', 'Screening Big', 3, 2, 12, 6, 5, 'dream_shake'),
+    ('Dante Graham', 'Combo Guard', 3, 9, 10, 7, 3, 'quick_release'),
+    ('Dominic Ellis', 'Combo Guard', 3, 11, 8, 7, 3, 'iso_threat'),
+    ('Davon Ross', 'Sharpshooter', 3, 12, 11, 3, 2, 'catch_shoot'),
+    ('Silas Ingram', 'Sharpshooter', 3, 12, 11, 4, 2, 'catch_shoot'),
+    ('Kevin Voss', 'Two-Way Forward', 3, 4, 12, 4, 7, 'pickpocket'),
+    ('Kevin Wells', 'Two-Way Forward', 3, 4, 12, 5, 6, 'on_ball_menace'),
+    ('Javon Udeze', 'Stretch Center', 3, 10, 12, 4, 5, 'limitless'),
+    ('Quincy Novak', 'Stretch Center', 3, 10, 12, 5, 5, 'fan_favorite'),
+    ('Cam Miller', 'Post Scorer', 3, 6, 11, 5, 10, 'dream_shake'),
+    ('Derrick Dawson', 'Post Scorer', 3, 6, 11, 5, 10, 'putback'),
+    ('Khalil Webb', 'Defensive Anchor', 3, 2, 12, 5, 4, 'rim_protector'),
+    ('Ronnie Cook', 'Defensive Anchor', 3, 2, 12, 4, 4, 'interceptor'),
     # --- Tier 4 ---
-    ('Chris Clark', 'Scoring PG', 4, 11, 6, 5, 3, 'limitless'),
-    ('Drew Wells', 'Scoring PG', 4, 11, 9, 8, 5, 'soft_touch'),
-    ('Ivan Woods', 'Slashing SF', 4, 5, 12, 4, 10, 'turnover_prone'),
-    ('Troy Anderson', 'Shooting SF', 4, 11, 10, 4, 2, 'quick_release'),
-    ('Sam Thompson', 'Rim-Run Big', 4, 2, 12, 4, 11, 'ball_stopper'),
-    ('Shane Booker', 'Pass-First PG', 4, 4, 13, 12, 2, 'floor_general'),
-    ('Keon Greer', 'Lockdown Wing', 4, 3, 13, 4, 2, 'lockdown'),
-    ('Ty Cruz', '3&D Wing', 4, 9, 13, 5, 2, 'on_ball_menace'),
-    ('Isaac Salas', 'Stretch 4', 4, 11, 12, 4, 2, 'limitless'),
-    ('Jaylen Mitchell', 'Point Forward', 4, 6, 8, 11, 2, 'handles'),
-    ('Christian Hill', 'Screening Big', 4, 2, 13, 5, 5, 'on_ball_menace'),
-    ('Troy Young', 'Combo Guard', 4, 11, 8, 9, 2, 'handles'),
-    ('Andre Reed', 'Sharpshooter', 4, 13, 9, 5, 2, 'catch_shoot'),
-    ('Dillon Sullivan', 'Two-Way Forward', 4, 4, 13, 3, 7, 'eurostep'),
-    ('Mason Morris', 'Stretch Center', 4, 10, 11, 5, 2, 'deadeye'),
-    ('Ben Barnes', 'Post Scorer', 4, 6, 10, 3, 9, 'putback'),
-    ('Jackson Wells', 'Defensive Anchor', 4, 2, 13, 5, 4, 'on_ball_menace'),
+    ('Brock Hayes', 'Scoring PG', 4, 13, 8, 9, 3, 'iso_threat'),
+    ('Logan Payne', 'Scoring PG', 4, 12, 10, 8, 5, 'heat_check'),
+    ('Sol Cruz', 'Slashing SF', 4, 6, 14, 5, 10, 'killer_cross'),
+    ('Theo Jones', 'Slashing SF', 4, 5, 12, 4, 12, 'eurostep'),
+    ('Bryce Bell', 'Shooting SF', 4, 15, 14, 6, 4, 'catch_shoot'),
+    ('David Phillips', 'Shooting SF', 4, 15, 12, 5, 4, 'deadeye'),
+    ('Rashad Ingram', 'Rim-Run Big', 4, 2, 15, 5, 13, 'dream_shake'),
+    ('Russell Ellis', 'Rim-Run Big', 4, 2, 15, 4, 12, 'ball_stopper'),
+    ('Brandon Hayes', 'Pass-First PG', 4, 4, 13, 14, 3, 'mentor'),
+    ('Dante Green', 'Pass-First PG', 4, 4, 14, 15, 2, 'mentor'),
+    ('Avery Kringle', 'Lockdown Wing', 4, 3, 15, 5, 2, 'on_ball_menace'),
+    ('Troy Gray', 'Lockdown Wing', 4, 4, 15, 4, 2, 'interceptor'),
+    ('Jaylon Flowers', '3&D Wing', 4, 10, 15, 4, 2, 'quick_release'),
+    ('Tobias Haas', '3&D Wing', 4, 10, 15, 6, 4, 'catch_shoot'),
+    ('Grant Yates', 'Stretch 4', 4, 13, 14, 4, 2, 'catch_shoot'),
+    ('Ty Hall', 'Stretch 4', 4, 13, 13, 6, 3, 'catch_shoot'),
+    ('Carson Bennett', 'Point Forward', 4, 7, 12, 13, 5, 'floor_general'),
+    ('Joel Anderson', 'Point Forward', 4, 7, 12, 13, 5, 'tempo_control'),
+    ('Damon Riley', 'Screening Big', 4, 2, 15, 6, 6, 'shot_blocker'),
+    ('Kobi Banks', 'Combo Guard', 4, 12, 10, 9, 3, 'iso_threat'),
+    ('Julian Davis', 'Sharpshooter', 4, 15, 13, 7, 2, 'limitless'),
+    ('Jax Scott', 'Two-Way Forward', 4, 5, 15, 5, 7, 'lockdown'),
+    ('Josh Bryant', 'Stretch Center', 4, 11, 14, 5, 3, 'catch_shoot'),
+    ('Jaden Thomas', 'Post Scorer', 4, 6, 11, 4, 12, 'soft_touch'),
+    ('Damian Thompson', 'Defensive Anchor', 4, 2, 15, 5, 5, 'shot_blocker'),
     # --- Tier 5 ---
-    ('Noah Phillips', 'Scoring PG', 5, 12, 9, 8, 4, 'heat_check'),
-    ('Grady Doyle', 'Slashing SF', 5, 7, 11, 6, 11, 'eurostep'),
-    ('Dwayne Williams', 'Shooting SF', 5, 15, 12, 6, 4, 'corner_spec'),
-    ('Chris Nelson', 'Rim-Run Big', 5, 2, 14, 4, 12, 'dream_shake'),
-    ('Travis King', 'Pass-First PG', 5, 5, 12, 12, 3, 'tempo_control'),
-    ('Cameron Evans', 'Lockdown Wing', 5, 5, 15, 4, 2, 'on_ball_menace'),
-    ('Rell Freeman', '3&D Wing', 5, 8, 15, 5, 2, 'deadeye'),
-    ('Quinn Brown', 'Stretch 4', 5, 12, 13, 5, 2, 'limitless'),
-    ('Kyle Zima', 'Point Forward', 5, 7, 10, 12, 5, 'dimer'),
-    ('Jordan Rhodes', 'Screening Big', 5, 2, 15, 6, 6, 'on_ball_menace'),
-    ('Jabari Bryant', 'Combo Guard', 5, 11, 10, 7, 4, 'handles'),
-    ('Dwayne Norman', 'Sharpshooter', 5, 15, 11, 5, 2, 'deadeye'),
-    ('Nate Barnes', 'Two-Way Forward', 5, 6, 15, 6, 7, 'lockdown'),
-    ('Will Vance', 'Stretch Center', 5, 11, 12, 5, 3, 'rim_protector'),
+    ('Vince Green', 'Scoring PG', 5, 14, 11, 11, 5, 'iso_threat'),
+    ('Wes Bryant', 'Scoring PG', 5, 15, 10, 9, 6, 'soft_touch'),
+    ('Ty Thomas', 'Slashing SF', 5, 9, 15, 6, 13, 'killer_cross'),
+    ('Wes Norman', 'Slashing SF', 5, 6, 13, 7, 12, 'iso_threat'),
+    ('Enzo Voss', 'Shooting SF', 5, 16, 14, 6, 2, 'catch_shoot'),
+    ('Ryan Glenn', 'Shooting SF', 5, 16, 15, 6, 4, 'limitless'),
+    ('Bryce Barnes', 'Rim-Run Big', 5, 4, 16, 3, 14, 'soft_touch'),
+    ('Garrett Johnson', 'Rim-Run Big', 5, 3, 16, 5, 15, 'lob_threat'),
+    ('Trent Morris', 'Pass-First PG', 5, 5, 14, 15, 2, 'dimer'),
+    ('Micah Cruz', 'Lockdown Wing', 5, 6, 16, 7, 2, 'lockdown'),
+    ('Harrison Hill', '3&D Wing', 5, 11, 16, 5, 3, 'quick_release'),
+    ('Mark Adams', 'Stretch 4', 5, 16, 16, 6, 2, 'soft_touch'),
+    ('Justin Long', 'Point Forward', 5, 9, 12, 15, 4, 'tempo_control'),
+    ('Enzo Mack', 'Screening Big', 5, 3, 16, 8, 6, 'rim_protector'),
+    ('Mark Kemp', 'Combo Guard', 5, 15, 11, 10, 5, 'iso_threat'),
+    ('Jacoby Pike', 'Sharpshooter', 5, 16, 13, 7, 4, 'deadeye'),
+    ('Tyler Pike', 'Two-Way Forward', 5, 7, 16, 5, 7, 'pickpocket'),
+    ('Ben Campbell', 'Stretch Center', 5, 15, 16, 7, 6, 'deadeye'),
+    ('Silas Wells', 'Post Scorer', 5, 7, 14, 5, 12, 'rim_protector'),
+    ('Jacoby Johnson', 'Defensive Anchor', 5, 2, 16, 5, 4, 'shot_blocker'),
     # --- Tier 6 ---
-    ('Theo Long', 'Scoring PG', 6, 14, 9, 11, 5, 'turnover_prone'),
-    ('Flynn Flowers', 'Slashing SF', 6, 7, 14, 5, 11, 'soft_touch'),
-    ('Darius Frazier', 'Shooting SF', 6, 16, 12, 5, 2, 'catch_shoot'),
-    ('Javon Cooper', 'Rim-Run Big', 6, 2, 15, 3, 14, 'rim_protector'),
-    ('Tyrell Dixon', 'Pass-First PG', 6, 3, 13, 15, 2, 'handles'),
-    ('Henry Lamonet', 'Lockdown Wing', 6, 5, 17, 5, 2, 'lockdown'),
-    ('Myles Anderson', 'Lockdown Wing', 6, 5, 17, 4, 2, 'pickpocket'),
-    ('Kobi Baker', '3&D Wing', 6, 8, 17, 5, 2, 'on_ball_menace'),
-    ('Otis Powell', 'Stretch 4', 6, 15, 15, 5, 2, 'limitless'),
+    ('Juju Shaw', 'Scoring PG', 6, 17, 10, 11, 4, 'handles'),
+    ('Alec Ferguson', 'Slashing SF', 6, 7, 18, 7, 14, 'soft_touch'),
+    ('Terry Morgan', 'Shooting SF', 6, 18, 16, 8, 4, 'quick_release'),
+    ('Ronnie Moore', 'Rim-Run Big', 6, 4, 18, 4, 16, 'putback'),
+    ('Greg Sullivan', 'Pass-First PG', 6, 6, 18, 19, 4, 'tempo_control'),
+    ('Avery Davis', 'Lockdown Wing', 6, 5, 20, 7, 2, 'pickpocket'),
+    ('Henry Lamonet', 'Lockdown Wing', 6, 5, 20, 7, 2, 'lockdown'),
+    ('Ben Stone', '3&D Wing', 6, 11, 20, 7, 4, 'deadeye'),
+    ('Travis Powell', 'Stretch 4', 6, 17, 17, 7, 2, 'catch_shoot'),
+    ('Enzo Thompson', 'Point Forward', 6, 9, 15, 15, 6, 'tempo_control'),
+    ('Chris Graham', 'Screening Big', 6, 3, 20, 7, 7, 'ball_stopper'),
+    ('Andre Moore', 'Combo Guard', 6, 15, 13, 12, 4, 'iso_threat'),
+    ('Rell Perry', 'Sharpshooter', 6, 20, 16, 7, 2, 'deadeye'),
+    ('Aaron Scott', 'Two-Way Forward', 6, 7, 20, 7, 10, 'eurostep'),
+    ('Kai Fields', 'Stretch Center', 6, 16, 18, 7, 4, 'catch_shoot'),
+    # --- Tier 7 ---
+    ('Alec Howard', 'Scoring PG', 7, 20, 12, 12, 5, 'soft_touch'),
+    ('Emmanuel Sims', 'Slashing SF', 7, 9, 19, 8, 15, 'eurostep'),
+    ('Quincy Woods', 'Shooting SF', 7, 21, 19, 9, 4, 'deadeye'),
+    ('Otis Ingram', 'Rim-Run Big', 7, 5, 21, 6, 18, 'soft_touch'),
+    ('Jerry Sims', 'Pass-First PG', 7, 5, 20, 21, 4, 'tempo_control'),
+    ('Jabari Perry', 'Lockdown Wing', 7, 6, 25, 7, 2, 'interceptor'),
+    ('Jalen Ward', '3&D Wing', 7, 13, 25, 7, 3, 'corner_spec'),
+    ('Rell Lewis', 'Stretch 4', 7, 21, 18, 8, 2, 'catch_shoot'),
+    ('Nash Jenkins', 'Point Forward', 7, 12, 14, 18, 5, 'floor_general'),
+    ('Dalton Greer', 'Screening Big', 7, 2, 25, 8, 10, 'rim_protector'),
 ]
 POOL = [{"name": n, "archetype": a, "tier": t, "sht": sh, "dfn": d,
          "plm": pl, "ath": at, "ability": ab}
@@ -902,7 +987,12 @@ def random_team(round_no):
               for s in range(1, 6)}
     out = []
     for s in range(1, 6):
-        lvl = 1 + (1 if random.random() < 0.10 + 0.035 * round_no else 0)
+        # opponents are a touch stronger now: a bit more likely to be leveled,
+        # with the odd L3 star deep in the run (slightly-better CPU teams).
+        roll = random.random()
+        lvl = 2 if roll < 0.12 + 0.04 * round_no else 1
+        if round_no >= 9 and roll < 0.12:
+            lvl = 3
         p = _instantiate(random.choice(by_pos[s]), level=lvl)
         p["slot"] = s
         out.append(p)
@@ -1700,7 +1790,7 @@ def play_round(lineup, opponent, finals=False):
 # release refund rises with tier (T1-2 -> 1, T3-4 -> 2, T5-6 -> 3); some
 # abilities make a player worth more on release.
 RELEASE_BONUS = {"fan_favorite": 2}
-TIER_SELL = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
+TIER_SELL = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4}
 
 
 def sell_refund(player):

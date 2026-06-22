@@ -19,7 +19,7 @@ const MAX_LEVEL = 3;
 const XP_FOR_LEVEL = {2: 2, 3: 5};        // copies absorbed to reach each level (SAP)
 const XP_START = {1: 0, 2: 2, 3: 5};      // xp at the start of each level
 const CHEM = JSON.parse(body.dataset.chem || "[]");   // archetype duos/trios
-const GEM = {1: "Rookie", 2: "Role Player", 3: "Starter", 4: "All-Star", 5: "All-League", 6: "HOF"};
+const GEM = {1: "Rookie", 2: "Role Player", 3: "Starter", 4: "All-Star", 5: "All-League", 6: "HOF", 7: "Legend"};
 
 // which chemistry combos a team currently fields (mirrors sim._match_combo)
 function computeChem(team) {
