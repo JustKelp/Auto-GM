@@ -7,6 +7,7 @@ const LOSS_LIMIT = +body.dataset.losses || 4;   // losses that eliminate you
 const STEP_MS = 800;           // base beat (was 1150 — far too slow)
 const PASS_PAUSE =400;        // beat held after a pass
 const MOVE_MS = 300;           // off-ball drift beat
+const FRAME_MS = 165;          // cadence of the smooth intra-play motion frames
 const SHOT_FLIGHT = 400;       // ball in the air on a shot
 const HIT_STOP = 200;          // micro-freeze ON a make (juice: lets the bucket land)
 const SCORE_HOLD = 400;        // savor the bucket after it drops
@@ -780,22 +781,30 @@ async function animate(result) {
   await sleep(320);
 
   const playPossession = async (poss, who, addScore) => {
-    const holder = poss.handler;             // the initiator starts with the ball
+    let holderId = poss.handler;             // who currently has the ball
     let cur = posLookup(poss.layout);
     moveTokens(poss.layout);                 // drift into the play
-    ballTo(holder ? cur[holder] : null, {instant: true});
-    await sleep(240);
+    ballTo(holderId ? cur[holderId] : null, {instant: true});
+    await sleep(200);
     for (const ev of poss.events) {
-      if (ev.layout) {                       // players keep MOVING during the play
+      if (ev.layout) {                       // everyone glides to the next frame
         cur = posLookup(ev.layout);
         moveTokens(ev.layout);
-        await sleep(MOVE_MS);
       }
-      if (ev.kind === "pass") {
+      if (ev.kind === "move") {              // smooth purposeful motion frame
+        if (holderId && cur[holderId]) ballTo(cur[holderId]);  // ball rides with the handler
+        await sleep(FRAME_MS);
+      } else if (ev.kind === "screen") {     // a big sets a pick to free the shooter
+        if (ev.actor) flash(ev.actor, false);
+        if (ev.text) logLines([ev.text], who + " screen");
+        if (holderId && cur[holderId]) ballTo(cur[holderId]);
+        await sleep(FRAME_MS + 140);
+      } else if (ev.kind === "pass") {
         logLines([ev.text], who + " pass");
         if (ev.actor) flash(ev.actor, false);
         trailLine(cur[ev.actor], cur[ev.target], "pass");          // playbook dashed pass
         ballTo(cur[ev.target]);              // swing the ball to the next handler
+        holderId = ev.target;
         await sleep(PASS_PAUSE);             // brief beat, then move on
       } else if (ev.kind === "steal") {      // intercepted IN THE LANE, before the target
         logLines([ev.text], who + " steal");
@@ -804,7 +813,7 @@ async function animate(result) {
         await sleep(340);
       } else if (ev.kind === "rebound") {    // crashed the offensive glass
         logLines([ev.text], who + " reb");
-        if (ev.actor) { flash(ev.actor, false); ballTo(cur[ev.actor]); }
+        if (ev.actor) { flash(ev.actor, false); ballTo(cur[ev.actor]); holderId = ev.actor; }
         await sleep(300);
       } else {                               // made / miss — shoot from the spot
         if (ev.actor) ballTo(cur[ev.actor]);

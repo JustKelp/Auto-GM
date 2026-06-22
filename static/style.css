@@ -283,7 +283,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
    constant at every court size. A real NBA player footprint is ~2.3 ft on a
    50 ft-wide court ≈ 5% — the disc is 5cqw. */
 .token{position:absolute; width:14cqw; transform:translate(-50%,-50%); text-align:center;
-  user-select:none; z-index:2; transition:left .34s ease, top .34s ease}
+  user-select:none; z-index:2; transition:left .3s linear, top .3s linear}
 .token.mine{cursor:grab} .token.mine:active{cursor:grabbing}
 .token .disc{width:5cqw; height:5cqw; margin:0 auto; border-radius:50%;
   background:var(--you); color:#04243f;
@@ -384,6 +384,7 @@ body.view-fan .court{max-width:760px}                /* the court is the centerp
 .feed .made{color:var(--money); font-weight:700}
 .feed .steal{color:var(--opp); font-weight:700}
 .feed .pass{color:var(--muted)}
+.feed .screen{color:#aeb6c2}
 .feed .miss{color:#aab4c0}
 .feed .reb{color:var(--accent); font-weight:700}
 .feed .head{font-family:var(--display); font-weight:600; margin:10px 0 4px; color:var(--accentink);

@@ -31,7 +31,7 @@ LINEUP_SIZE = 5
 SHOP_SIZE = 5
 STARTING_CAP = 17
 CAP_PER_ROUND = 8
-REROLL_COST = 2
+REROLL_COST = 1
 WINS_TO_FINISH = 12       # wins that clinch a Finals berth (championship run)
 LOSSES_TO_BUST = 4        # losses that eliminate you
 
@@ -59,6 +59,21 @@ PASS_STEP = 5.0          # the passer steps into the play to deliver it
 # 2 is the norm, 1 fairly common, 3 rare. Capped at 3 by the available players.
 PASS_WEIGHTS = {1: 0.28, 2: 0.54, 3: 0.18}
 MOVE_STEP = 5.0          # how far players drift each beat DURING the play (live motion)
+# --- purposeful movement + screens (2026-06-22) -----------------------------
+# Players move with intent and the sim emits many small frames so motion glides
+# instead of jumping. Off-ball players space the floor; a big can set a screen.
+DEVELOP_FRAMES = 2       # smooth frames as the play develops before the ball swings
+PRESHOT_FRAMES = 3       # smooth frames as the shooter curls into his shot
+PASS_FRAMES = 1          # settle frames before each pass
+CROWD_DIST = 17.0        # a spacer closer than this to the ball slides away to open space
+SPACE_STEP = 6.0         # how far a spacer relocates toward open space
+SCREEN_CHANCE = 0.55     # how often a screen is set (when an eligible big is on the floor)
+SCREEN_BEHAVIORS = ("screen", "roll")   # archetypes that set screens (bigs)
+SCREEN_OPEN = 0.11       # extra make-% the freed shooter gets coming off a clean screen
+SCREEN_SET_DIST = 8.0    # the big must get this close to the defender to actually set the pick
+SCREEN_APPROACH = 1.7    # the screener hustles to the pick faster than a normal drift
+SCREEN_MAX_FRAMES = 5    # cap on frames spent getting into the screen
+SCREEN_SIDE = 4.5        # the screener stands this far to ONE SIDE of the man (not stacked on him)
 # Rebounding (hidden stat). Real NBA offensive-rebound rate is ~26%; this is a
 # turn game, so we sit UNDER that — second chances are uncommon.
 OREB_BASE = 0.12         # offensive-rebound chance at even rebounding
@@ -1129,15 +1144,20 @@ def _shot_target(behavior, x, y):
     return (bx + ux * desired, by + uy * desired)
 
 
-def live_defense(offense, mapping, off_pos, doubles=None):
+def live_defense(offense, mapping, off_pos, doubles=None, screen_lag=None):
     """Man-to-man defenders track their man's live (dribbled) spot; any doubling
-    defender sits next to the player he traps so he counts as help. id -> (x, y)."""
+    defender sits next to the player he traps so he counts as help. A defender in
+    `screen_lag` is hung up on a screen and stays at that spot. id -> (x, y)."""
     pos = {}
+    screen_lag = screen_lag or {}
     for o in offense:
         d = mapping.get(o["id"])
         if d:
-            ox, oy = off_pos[o["id"]]
-            pos[d["id"]] = _defender_spot_xy(ox, oy)
+            if d["id"] in screen_lag:          # caught on the pick — trailing the play
+                pos[d["id"]] = screen_lag[d["id"]]
+            else:
+                ox, oy = off_pos[o["id"]]
+                pos[d["id"]] = _defender_spot_xy(ox, oy)
     for did, oid in (doubles or {}).items():
         if oid in off_pos:
             ox, oy = off_pos[oid]
@@ -1364,20 +1384,86 @@ def _reb(p):
     return p.get("reb", ARCHETYPE_REB.get(p["archetype"], 4))
 
 
-def _advance(offense, cur, shooter_id, shot_spot, beat):
-    """Advance one beat of PURPOSEFUL motion: the shooter works toward his shot
-    spot; everyone else just holds spacing at their role spot (small settle —
-    no wandering, no drifting away from the basket). Returns id -> (x, y)."""
+def _open_role_spot(p):
+    """An off-ball teammate in the pass chain works to his role (anchor) spot to be
+    an outlet — i.e. moves to GET the ball, not at random."""
+    a = p["anchors"][0]
+    return (a["x"], a["y"])
+
+
+def _spacing_target(p, cur, ball_xy):
+    """Floor spacing with purpose: if a player is crowding the ball-handler he
+    slides AWAY from the ball toward open floor (biased to his role spot); if he is
+    already well spaced he holds his spot (settling to his anchor only if he has
+    drifted). No motion for motion's sake."""
+    x, y = cur[p["id"]]
+    ax, ay = p["anchors"][0]["x"], p["anchors"][0]["y"]
+    if _dist((x, y), ball_xy) < CROWD_DIST:                 # too close to the ball
+        dx, dy = x - ball_xy[0], y - ball_xy[1]
+        d = math.hypot(dx, dy) or 1.0
+        ox, oy = x + dx / d * SPACE_STEP, y + dy / d * SPACE_STEP   # step off the ball
+        return ((ox + ax) / 2.0, (oy + ay) / 2.0)                  # ...toward open space
+    if _dist((x, y), (ax, ay)) > 6.0:
+        return (ax, ay)                                            # settle back to his spot
+    return (x, y)                                                  # well spaced — stand still
+
+
+def _pick_screener(offense, shooter, initiator):
+    """The off-ball big who sets the screen: prefer true screen/roll bigs, else the
+    biggest body; never the shooter or the ball-handler. None if nobody fits."""
+    cands = [p for p in offense if p["id"] not in (shooter["id"], initiator["id"])
+             and (p["behavior"] in SCREEN_BEHAVIORS or _reb(p) >= 7)]
+    if not cands:
+        return None
+    cands.sort(key=lambda p: (p["behavior"] in SCREEN_BEHAVIORS, _reb(p)), reverse=True)
+    return cands[0]
+
+
+def _screen_spot(ox, oy):
+    """Where the screener stands to set a CLEAN pick: just to one side of the
+    defender (a distinct body beside the man, never stacked on top of him). The
+    man he screens stays his own defender — exactly one screener per defender."""
+    dx, dy = _defender_spot_xy(ox, oy)
+    bx, by = BASKET
+    vx, vy = dx - bx, dy - by
+    d = math.hypot(vx, vy) or 1.0
+    px, py = -vy / d, vx / d                       # unit perpendicular to basket->man
+    side = 1.0 if dx >= 50.0 else -1.0             # lean toward the near sideline
+    return (_clamp(dx + px * side * SCREEN_SIDE, 4, 96),
+            _clamp(dy + py * side * SCREEN_SIDE, 4, 96))
+
+
+def _screener_step(p, cur, roles, screen_state):
+    """Screener path: go beside the shooter's defender to set the pick; once set,
+    roll hard to the rim (or pop to the arc if he's a stretch big)."""
+    pick_spot = _screen_spot(*cur[roles["screen_target"]])
+    if not screen_state["set"]:
+        return (pick_spot[0], pick_spot[1], MOVE_STEP * SCREEN_APPROACH)   # hustle to the pick
+    if p["behavior"] == "spot_up" or "Stretch" in p["archetype"]:
+        tx, ty = _shot_target("spot_up", *cur[p["id"]])    # pop to the arc
+    else:
+        tx, ty = BASKET[0], BASKET[1] + 8                  # roll to the rim
+    return (tx, ty, MOVE_STEP)
+
+
+def _advance(offense, cur, roles, screen_state):
+    """One frame of PURPOSEFUL motion. Each player moves toward an intent: the
+    shooter curls to his shot spot; a screener goes to set the pick then rolls/pops;
+    chain passers work to an outlet spot; everyone else spaces the floor (slides off
+    the ball or stands still). Returns id -> (x, y)."""
+    ball_xy = cur[roles["handler"]]
     nxt = {}
     for p in offense:
-        if p["id"] == shooter_id:
-            tx, ty = shot_spot
-            step = MOVE_STEP
+        pid = p["id"]
+        if pid == roles["shooter"]:
+            tx, ty, step = (*roles["shot_spot"], MOVE_STEP)
+        elif roles["screener"] and pid == roles["screener"]:
+            tx, ty, step = _screener_step(p, cur, roles, screen_state)
+        elif pid in roles["chain"]:
+            tx, ty, step = (*_open_role_spot(p), MOVE_STEP * 0.7)
         else:
-            a = p["anchors"][0]           # primary (role) spot — hold your spacing
-            tx, ty = a["x"], a["y"]
-            step = MOVE_STEP * 0.4        # gentle settle, not constant motion
-        nxt[p["id"]] = _step_toward(cur[p["id"]][0], cur[p["id"]][1], tx, ty, step)
+            tx, ty, step = (*_spacing_target(p, cur, ball_xy), MOVE_STEP * 0.8)
+        nxt[pid] = _step_toward(cur[pid][0], cur[pid][1], tx, ty, step)
     return nxt
 
 
@@ -1509,12 +1595,65 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
     sx, sy = setup[shooter["id"]]
     shot_spot = _step_toward(sx, sy, *_shot_target(shooter["behavior"], sx, sy), SHOT_STEP)
 
-    # --- walk the play beat-by-beat; players keep MOVING the whole time -------
-    cur, beat = dict(setup), 1
+    # --- decide a screen: a big frees the shooter with a pick (fairly common) ---
+    screener = (_pick_screener(offense, shooter, initiator)
+                if random.random() < SCREEN_CHANCE else None)
+    man = mapping.get(shooter["id"])
+    roles = {
+        "shooter": shooter["id"], "shot_spot": shot_spot,
+        "screener": screener["id"] if screener else None,
+        "screen_target": shooter["id"],            # the pick frees the shooter
+        "chain": {p["id"] for p in chain[:-1]},    # the passers (not the shooter)
+        "handler": initiator["id"],
+    }
+    screen_state = {"set": False}
+    screen_lag = {}                                # def id -> spot it's stuck on
+
+    def _frame(kind="move", **extra):
+        """Emit one motion frame (smooth intermediate position) + optional event."""
+        cur_def = live_defense(offense, mapping, cur, doubles, screen_lag)
+        ev = {"kind": kind, "actor": None, "target": None, "points": 0,
+              "layout": possession_layout(offense, defense, cur, cur_def), "text": None}
+        ev.update(extra)
+        events.append(ev)
+        return cur_def
+
+    cur = dict(setup)
+
+    # 1) develop the play — everyone moves with purpose
+    for _ in range(DEVELOP_FRAMES):
+        cur = _advance(offense, cur, roles, screen_state)
+        _frame("move")
+
+    # 2) the big hustles beside the pick; the screen is only "set" once he ACTUALLY
+    #    reaches the shooter's defender. Exactly ONE screener screens ONE defender
+    #    (the shooter's man) — screen_lag never holds more than that single entry.
+    screened = False
+    if screener and man and man["id"] not in screen_lag:
+        def _set_screen():
+            screen_state["set"] = True
+            screen_lag[man["id"]] = _defender_spot_xy(*cur[shooter["id"]])  # the man hangs back
+            _frame("screen", actor=screener["id"], target=shooter["id"],
+                   text=f"   {screener['name']} sets a screen for {shooter['name']}")
+        for _ in range(SCREEN_MAX_FRAMES):
+            cur = _advance(offense, cur, roles, screen_state)
+            if _dist(cur[screener["id"]], _screen_spot(*cur[shooter["id"]])) <= SCREEN_SET_DIST:
+                screened = True
+                _set_screen()
+                break
+            _frame("move")
+        if not screened:                       # never quite arrived — set it at his spot
+            screened = True
+            _set_screen()
+
+    # 3) swing the ball through the chain (a settle frame before each pass)
     for i in range(len(chain) - 1):
         frm, to = chain[i], chain[i + 1]
-        cur = _advance(offense, cur, shooter["id"], shot_spot, beat); beat += 1
-        cur_def = live_defense(offense, mapping, cur, doubles)
+        roles["handler"] = frm["id"]
+        for _ in range(PASS_FRAMES):
+            cur = _advance(offense, cur, roles, screen_state)
+            _frame("move")
+        cur_def = live_defense(offense, mapping, cur, doubles, screen_lag)
         layout = possession_layout(offense, defense, cur, cur_def)
         risk, culprit = _pass_risk(frm, to, defense, cur, cur_def, to_mult)
         if random.random() < risk:          # intercepted BEFORE reaching the target
@@ -1531,15 +1670,21 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
             "layout": layout,
             "text": f"{frm['name']} {random.choice(PASS_VERBS)} {to['name']}",
         })
+        roles["handler"] = to["id"]
 
-    # --- the shot (shooter has worked to his spot) ---------------------------
-    cur = _advance(offense, cur, shooter["id"], shot_spot, beat)
+    # 4) the shooter curls to his spot (the screen frees him) — smooth frames
+    roles["handler"] = shooter["id"]
+    for _ in range(PRESHOT_FRAMES):
+        cur = _advance(offense, cur, roles, screen_state)
+        _frame("move")
     cur[shooter["id"]] = shot_spot
-    cur_def = live_defense(offense, mapping, cur, doubles)
+    cur_def = live_defense(offense, mapping, cur, doubles, screen_lag)
     shot_layout = possession_layout(offense, defense, cur, cur_def)
     look = _evaluate(shooter, defense, mapping, cur, cur_def,
                      passer=(chain[-2] if passing else None), off_pass=passing,
                      off_bonus=off_bonus, make_bonus=make_bonus)
+    if screened:                                   # a clean screen = a cleaner look
+        look["prob"] = _clamp(look["prob"] + SCREEN_OPEN, 0.05, 0.97)
     contest_def = look["man"]["id"] if look["man"] else None
     made = random.random() < look["prob"]
 
@@ -1659,9 +1804,12 @@ def _box_score(team, own_poss, opp_poss):
                 if ev["kind"] == "made":
                     box[a]["fgm"] += 1
                     box[a]["pts"] += ev.get("points", 0)
-                    # assist: the pass immediately before a make
-                    if i > 0 and evs[i - 1]["kind"] == "pass":
-                        pa = evs[i - 1].get("actor")
+                    # assist: the last real pass before a make (skip motion frames)
+                    j = i - 1
+                    while j >= 0 and evs[j]["kind"] in ("move", "screen"):
+                        j -= 1
+                    if j >= 0 and evs[j]["kind"] == "pass" and evs[j].get("target") == a:
+                        pa = evs[j].get("actor")
                         if pa in box:
                             box[pa]["ast"] += 1
             elif ev["kind"] == "rebound":          # offensive board
