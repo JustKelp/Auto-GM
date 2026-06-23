@@ -74,6 +74,10 @@ SCREEN_SET_DIST = 8.0    # the big must get this close to the defender to actual
 SCREEN_APPROACH = 1.7    # the screener hustles to the pick faster than a normal drift
 SCREEN_MAX_FRAMES = 5    # cap on frames spent getting into the screen
 SCREEN_SIDE = 4.5        # the screener stands this far to ONE SIDE of the man (not stacked on him)
+SCREEN_HOLD_FRAMES = 3   # how long the big STAYS planted on the pick before he rolls/pops
+TRAIL_GAP = 9.0          # how far the beaten defender trails BEHIND the freed shooter
+SHOOTER_BURST = 1.4      # the freed man accelerates off the screen the instant it's set
+SCREEN_RELOCATE = 15.0   # how far the freed man relocates off the pick to open space
 # Rebounding (hidden stat). Real NBA offensive-rebound rate is ~26%; this is a
 # turn game, so we sit UNDER that — second chances are uncommon.
 OREB_BASE = 0.12         # offensive-rebound chance at even rebounding
@@ -1433,16 +1437,43 @@ def _screen_spot(ox, oy):
             _clamp(dy + py * side * SCREEN_SIDE, 4, 96))
 
 
+def _trail_spot(sx, sy, px, py, gap):
+    """A point `gap` units BEHIND the shooter, back toward where the screen was
+    (px,py) — i.e. where his beaten defender trails as he bursts off the pick."""
+    dx, dy = px - sx, py - sy
+    d = math.hypot(dx, dy) or 1.0
+    return (_clamp(sx + dx / d * gap, 4, 96), _clamp(sy + dy / d * gap, 4, 96))
+
+
+def _relocate_off_screen(shot_spot, pick_spot):
+    """The freed shooter relocates LATERALLY off the pick — same shot distance, but
+    he runs to open space on the side away from the screen, so he is visibly moving
+    when his man trails. Keeps his shot zone (a three stays a three)."""
+    sx, sy = shot_spot
+    bx, by = BASKET
+    vx, vy = sx - bx, sy - by
+    d = math.hypot(vx, vy) or 1.0
+    px, py = -vy / d, vx / d                       # unit perpendicular (along the arc)
+    kx, ky = pick_spot[0] - sx, pick_spot[1] - sy  # which lateral side the screen is on
+    side = 1.0 if (kx * px + ky * py) > 0 else -1.0   # relocate TOWARD the screen
+    return (_clamp(sx + px * side * SCREEN_RELOCATE, 6, 94),
+            _clamp(sy + py * side * SCREEN_RELOCATE, 6, 94))
+
+
 def _screener_step(p, cur, roles, screen_state):
-    """Screener path: go beside the shooter's defender to set the pick; once set,
-    roll hard to the rim (or pop to the arc if he's a stretch big)."""
-    pick_spot = _screen_spot(*cur[roles["screen_target"]])
-    if not screen_state["set"]:
-        return (pick_spot[0], pick_spot[1], MOVE_STEP * SCREEN_APPROACH)   # hustle to the pick
+    """Screener path by phase: APPROACH = hustle beside the shooter's defender;
+    HOLD = stay planted on the pick (don't move); ROLL = roll to the rim (or pop to
+    the arc if a stretch big)."""
+    phase = screen_state.get("phase", "approach")
+    if phase == "approach":
+        sp = _screen_spot(*cur[roles["screen_target"]])
+        return (sp[0], sp[1], MOVE_STEP * SCREEN_APPROACH)   # hustle to the pick
+    if phase == "hold":
+        return (cur[p["id"]][0], cur[p["id"]][1], 0.0)       # plant — hold the screen
     if p["behavior"] == "spot_up" or "Stretch" in p["archetype"]:
-        tx, ty = _shot_target("spot_up", *cur[p["id"]])    # pop to the arc
+        tx, ty = _shot_target("spot_up", *cur[p["id"]])      # pop to the arc
     else:
-        tx, ty = BASKET[0], BASKET[1] + 8                  # roll to the rim
+        tx, ty = BASKET[0], BASKET[1] + 8                    # roll to the rim
     return (tx, ty, MOVE_STEP)
 
 
@@ -1456,7 +1487,11 @@ def _advance(offense, cur, roles, screen_state):
     for p in offense:
         pid = p["id"]
         if pid == roles["shooter"]:
-            tx, ty, step = (*roles["shot_spot"], MOVE_STEP)
+            if roles["screener"] and not screen_state.get("set"):
+                tx, ty, step = (cur[pid][0], cur[pid][1], 0.0)   # wait to use the screen
+            else:                                                # burst off the screen
+                burst = SHOOTER_BURST if roles["screener"] else 1.0
+                tx, ty, step = (*roles["shot_spot"], MOVE_STEP * burst)
         elif roles["screener"] and pid == roles["screener"]:
             tx, ty, step = _screener_step(p, cur, roles, screen_state)
         elif pid in roles["chain"]:
@@ -1599,6 +1634,8 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
     screener = (_pick_screener(offense, shooter, initiator)
                 if random.random() < SCREEN_CHANCE else None)
     man = mapping.get(shooter["id"])
+    if screener and man:                           # the freed man relocates off the pick
+        shot_spot = _relocate_off_screen(shot_spot, _screen_spot(*setup[shooter["id"]]))
     roles = {
         "shooter": shooter["id"], "shot_spot": shot_spot,
         "screener": screener["id"] if screener else None,
@@ -1606,8 +1643,10 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
         "chain": {p["id"] for p in chain[:-1]},    # the passers (not the shooter)
         "handler": initiator["id"],
     }
-    screen_state = {"set": False}
-    screen_lag = {}                                # def id -> spot it's stuck on
+    screen_state = {"set": False, "phase": "approach", "pick": None}
+    screen_lag = {}                                # the one hung-up defender -> his spot
+    cur = dict(setup)
+    screened = False
 
     def _frame(kind="move", **extra):
         """Emit one motion frame (smooth intermediate position) + optional event."""
@@ -1618,33 +1657,40 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
         events.append(ev)
         return cur_def
 
-    cur = dict(setup)
+    def _trail():
+        """Once the screen is set, the beaten defender TRAILS behind the bursting
+        shooter (he fell behind coming off the pick) instead of tracking him."""
+        if screened and man:
+            screen_lag[man["id"]] = _trail_spot(*cur[shooter["id"]],
+                                                *screen_state["pick"], TRAIL_GAP)
 
-    # 1) develop the play — everyone moves with purpose
+    # 1) develop the play — everyone moves with purpose (a screened shooter waits)
     for _ in range(DEVELOP_FRAMES):
         cur = _advance(offense, cur, roles, screen_state)
         _frame("move")
 
-    # 2) the big hustles beside the pick; the screen is only "set" once he ACTUALLY
-    #    reaches the shooter's defender. Exactly ONE screener screens ONE defender
-    #    (the shooter's man) — screen_lag never holds more than that single entry.
-    screened = False
-    if screener and man and man["id"] not in screen_lag:
-        def _set_screen():
-            screen_state["set"] = True
-            screen_lag[man["id"]] = _defender_spot_xy(*cur[shooter["id"]])  # the man hangs back
-            _frame("screen", actor=screener["id"], target=shooter["id"],
-                   text=f"   {screener['name']} sets a screen for {shooter['name']}")
+    # 2) the big hustles beside the pick; the screen is "set" only once he ACTUALLY
+    #    reaches the shooter's defender. Exactly ONE screener screens ONE defender.
+    if screener and man:
         for _ in range(SCREEN_MAX_FRAMES):
             cur = _advance(offense, cur, roles, screen_state)
             if _dist(cur[screener["id"]], _screen_spot(*cur[shooter["id"]])) <= SCREEN_SET_DIST:
-                screened = True
-                _set_screen()
                 break
             _frame("move")
-        if not screened:                       # never quite arrived — set it at his spot
-            screened = True
-            _set_screen()
+        # SET the pick: the shooter runs his man INTO the screener, who hangs him up
+        screened = True
+        screen_state["set"] = True
+        screen_state["phase"] = "hold"
+        screen_state["pick"] = tuple(cur[screener["id"]])    # the screen location
+        screen_lag[man["id"]] = tuple(cur[screener["id"]])   # the man runs into the screen
+        _frame("screen", actor=screener["id"], target=shooter["id"],
+               text=f"   {screener['name']} sets a screen for {shooter['name']}")
+        # 2b) HOLD: the big stays planted; the shooter bursts; the man falls behind
+        for _ in range(SCREEN_HOLD_FRAMES):
+            cur = _advance(offense, cur, roles, screen_state)
+            _trail()
+            _frame("move")
+        screen_state["phase"] = "roll"             # now the big can roll or pop
 
     # 3) swing the ball through the chain (a settle frame before each pass)
     for i in range(len(chain) - 1):
@@ -1652,7 +1698,9 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
         roles["handler"] = frm["id"]
         for _ in range(PASS_FRAMES):
             cur = _advance(offense, cur, roles, screen_state)
+            _trail()
             _frame("move")
+        _trail()
         cur_def = live_defense(offense, mapping, cur, doubles, screen_lag)
         layout = possession_layout(offense, defense, cur, cur_def)
         risk, culprit = _pass_risk(frm, to, defense, cur, cur_def, to_mult)
@@ -1676,8 +1724,10 @@ def run_possession(offense, defense, mapping, doubles=None, off_bonus=None, to_m
     roles["handler"] = shooter["id"]
     for _ in range(PRESHOT_FRAMES):
         cur = _advance(offense, cur, roles, screen_state)
+        _trail()
         _frame("move")
     cur[shooter["id"]] = shot_spot
+    _trail()
     cur_def = live_defense(offense, mapping, cur, doubles, screen_lag)
     shot_layout = possession_layout(offense, defense, cur, cur_def)
     look = _evaluate(shooter, defense, mapping, cur, cur_def,
