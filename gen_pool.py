@@ -35,15 +35,21 @@ ARCH_SHAPE = {
     "Pass-First PG": dict(sht=.12, dfn=.40, plm=.42, ath=.06),
     "Lockdown Wing": dict(sht=.12, dfn=.69, plm=.15, ath=.04),
     "3&D Wing":      dict(sht=.26, dfn=.53, plm=.13, ath=.08),
-    "Stretch 4":     dict(sht=.42, dfn=.37, plm=.15, ath=.06),
+    "Stretch Big":   dict(sht=.38, dfn=.38, plm=.15, ath=.09),
     "Point Forward": dict(sht=.22, dfn=.31, plm=.35, ath=.12),
     "Screening Big": dict(sht=.04, dfn=.60, plm=.18, ath=.18),
     "Combo Guard":   dict(sht=.35, dfn=.29, plm=.25, ath=.11),
     "Sharpshooter":  dict(sht=.45, dfn=.33, plm=.15, ath=.07),
     "Two-Way Forward": dict(sht=.15, dfn=.51, plm=.15, ath=.19),
-    "Stretch Center": dict(sht=.34, dfn=.39, plm=.15, ath=.12),
     "Post Scorer":   dict(sht=.18, dfn=.35, plm=.15, ath=.32),
     "Defensive Anchor": dict(sht=.03, dfn=.69, plm=.15, ath=.13),
+    # --- new archetypes (2026-06-22 expansion) ---
+    "Microwave Scorer": dict(sht=.50, dfn=.18, plm=.18, ath=.14),
+    "Three-Level Scorer": dict(sht=.46, dfn=.20, plm=.16, ath=.18),
+    "Downhill Guard": dict(sht=.18, dfn=.22, plm=.26, ath=.34),
+    "Utility Wing":  dict(sht=.24, dfn=.34, plm=.30, ath=.12),
+    "Playmaking Big": dict(sht=.20, dfn=.34, plm=.34, ath=.12),
+    "Energy Big":    dict(sht=.05, dfn=.40, plm=.08, ath=.47),
 }
 ARCHS = list(ARCH_SHAPE)  # round-robin order (Scoring PG first so it repeats in T4)
 
@@ -64,8 +70,8 @@ ARCH_ABILITIES = {
                       ("lockdown", 3, 2)],
     "3&D Wing":      [("catch_shoot", 3, 1), ("deadeye", 2, 1), ("on_ball_menace", 2, 1),
                       ("quick_release", 2, 1), ("lockdown", 1, 3), ("corner_spec", 2, 1)],
-    "Stretch 4":     [("catch_shoot", 3, 1), ("deadeye", 3, 1), ("soft_touch", 2, 1),
-                      ("limitless", 2, 2)],
+    "Stretch Big":   [("catch_shoot", 3, 1), ("deadeye", 3, 1), ("soft_touch", 2, 1),
+                      ("limitless", 2, 2), ("rim_protector", 1, 1), ("fan_favorite", 1, 2)],
     "Point Forward": [("floor_general", 3, 1), ("tempo_control", 2, 1), ("iso_threat", 2, 1),
                       ("dimer", 3, 2), ("handles", 1, 1), ("mentor", 2, 2)],
     "Screening Big": [("rim_protector", 4, 1), ("on_ball_menace", 2, 1), ("ball_stopper", 1, 1),
@@ -79,12 +85,22 @@ ARCH_ABILITIES = {
                       ("quick_release", 2, 1), ("corner_spec", 2, 1)],
     "Two-Way Forward": [("on_ball_menace", 3, 1), ("eurostep", 2, 1), ("soft_touch", 2, 1),
                       ("pickpocket", 1, 1), ("lockdown", 1, 3)],
-    "Stretch Center": [("catch_shoot", 3, 1), ("deadeye", 2, 1), ("rim_protector", 2, 1),
-                      ("limitless", 1, 2), ("fan_favorite", 1, 2)],
     "Post Scorer":   [("soft_touch", 3, 1), ("dream_shake", 1, 3), ("ball_stopper", 2, 1),
                       ("iso_threat", 2, 1), ("rim_protector", 1, 1), ("putback", 2, 1)],
     "Defensive Anchor": [("rim_protector", 4, 1), ("on_ball_menace", 2, 1),
                       ("interceptor", 2, 2), ("ball_stopper", 1, 1), ("shot_blocker", 3, 1)],
+    "Microwave Scorer": [("heat_check", 3, 1), ("streaky", 2, 1), ("iso_threat", 2, 1),
+                      ("quick_release", 2, 1), ("limitless", 2, 2)],
+    "Three-Level Scorer": [("iso_threat", 3, 1), ("soft_touch", 2, 1), ("deadeye", 2, 1),
+                      ("heat_check", 2, 2), ("star_power", 1, 3), ("fan_favorite", 1, 3)],
+    "Downhill Guard": [("eurostep", 3, 1), ("killer_cross", 2, 2), ("handles", 2, 1),
+                      ("iso_threat", 2, 1), ("turnover_prone", 2, 1)],
+    "Utility Wing":  [("floor_general", 3, 1), ("dimer", 2, 2), ("on_ball_menace", 2, 1),
+                      ("tempo_control", 2, 1), ("handles", 1, 1)],
+    "Playmaking Big": [("floor_general", 3, 1), ("dimer", 3, 2), ("tempo_control", 2, 1),
+                      ("handles", 2, 1), ("rim_protector", 1, 1)],
+    "Energy Big":    [("putback", 4, 1), ("lob_threat", 3, 1), ("rim_protector", 2, 1),
+                      ("ball_stopper", 1, 1)],
 }
 
 TIER_BUDGET = {1: 20, 2: 25, 3: 30, 4: 35, 5: 40, 6: 45, 7: 50}  # total stat points, +/- noise
@@ -160,10 +176,11 @@ from collections import defaultdict
 ARCH_POS = {  # mirror sim.ARCHETYPE_POSITIONS for the check
     "Pass-First PG": [1], "Scoring PG": [1, 2], "Shooting SF": [2, 3],
     "Lockdown Wing": [2, 3], "3&D Wing": [2, 3], "Slashing SF": [3, 4],
-    "Point Forward": [3, 4], "Stretch 4": [4, 5], "Screening Big": [5],
+    "Point Forward": [3, 4], "Stretch Big": [4, 5], "Screening Big": [5],
     "Rim-Run Big": [4, 5], "Combo Guard": [1, 2], "Sharpshooter": [2, 3],
-    "Two-Way Forward": [3, 4], "Stretch Center": [4, 5], "Post Scorer": [4, 5],
-    "Defensive Anchor": [5],
+    "Two-Way Forward": [3, 4], "Post Scorer": [4, 5], "Defensive Anchor": [5],
+    "Microwave Scorer": [1, 2], "Three-Level Scorer": [2, 3], "Downhill Guard": [1, 2],
+    "Utility Wing": [2, 3, 4], "Playmaking Big": [4, 5], "Energy Big": [4, 5],
 }
 t1pos = set()
 for e in entries:
